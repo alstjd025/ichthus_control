@@ -14,8 +14,8 @@ PIDController::PIDController(const rclcpp::NodeOptions & options)
 
   RCLCPP_INFO(this->get_logger(), "Create Pub & Sub");
 
-  pid_thr_pub = this->create_publisher<ichthus_can_msgs::msg::Pid>("pid_vel", 1);
-  pid_str_pub = this->create_publisher<ichthus_can_msgs::msg::Pid>("pid_ang", 1);
+  pid_thr_pub = this->create_publisher<ichthus_msgs::msg::Pid>("pid_vel", 1);
+  pid_str_pub = this->create_publisher<ichthus_msgs::msg::Pid>("pid_ang", 1);
 
   ref_thr_sub = this->create_subscription<std_msgs::msg::Float64>(
     "ref_vel", 10, std::bind(&PIDController::pid_thr_CB, this, std::placeholders::_1));
@@ -189,9 +189,9 @@ void PIDController::spd_CB(const std_msgs::msg::Float64MultiArray::SharedPtr msg
  ** WHL_SPD_CheckSum_LSB, WHL_SPD_CheckSum_MSB
  */
 {
-  ichthus_can_msgs::msg::Pid acc_data;
-  ichthus_can_msgs::msg::Pid brk_data;
-  ichthus_can_msgs::msg::Pid str_data;
+  ichthus_msgs::msg::Pid acc_data;
+  ichthus_msgs::msg::Pid brk_data;
+  ichthus_msgs::msg::Pid str_data;
   float cur_vel = 0;
   float vel_err = 0;
   float abs_vel_err = 0;
@@ -254,7 +254,7 @@ void PIDController::ang_CB(const std_msgs::msg::Float64MultiArray::SharedPtr msg
  ** SAS_Angle, SAS_Speed, SAS_Stat, MsgCount, CheckSum
  */
 {
-  ichthus_can_msgs::msg::Pid data;
+  ichthus_msgs::msg::Pid data;
   float cur_ang = 0;
   float cur_vel = 0;
   float tar_vel = 0;
@@ -292,7 +292,6 @@ void PIDController::ang_CB(const std_msgs::msg::Float64MultiArray::SharedPtr msg
   data.data = actuation_sas;
   RCLCPP_INFO(this->get_logger(), "actuation_sas : %f", actuation_sas);
   RCLCPP_INFO(this->get_logger(), "err : %f", err);
-  data.error = err;
   data.frame_id = "Steer";
   pid_str_pub->publish(data);
 

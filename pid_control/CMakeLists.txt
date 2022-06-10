@@ -14,7 +14,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(ichthus_can_msgs REQUIRED)
+find_package(ichthus_msgs REQUIRED)
 
 include_directories(include)
 
@@ -22,7 +22,7 @@ include_directories(include)
 add_library(pid_controller STATIC src/pid_controller.cpp)
 target_compile_features(pid_controller PRIVATE cxx_std_17)
 ament_target_dependencies(pid_controller rclcpp rcl_interfaces
-  ichthus_can_msgs std_msgs)
+  ichthus_msgs std_msgs)
 target_include_directories(pid_controller
   PUBLIC
   #$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

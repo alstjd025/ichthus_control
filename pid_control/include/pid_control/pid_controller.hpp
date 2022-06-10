@@ -16,7 +16,7 @@
 #include <cmath>
 
 /* User Header */
-#include "ichthus_can_msgs/msg/pid.hpp"
+#include "ichthus_msgs/msg/pid.hpp"
 
 #define MINUMIUM_TH 0.11
 #define LT_STR_MIN_TH 0.05 //It's Right - 0.01
@@ -55,8 +55,8 @@ namespace ichthus
 class PIDController : public rclcpp::Node
 {
   private:
-    rclcpp::Publisher<ichthus_can_msgs::msg::Pid>::SharedPtr pid_thr_pub;
-    rclcpp::Publisher<ichthus_can_msgs::msg::Pid>::SharedPtr pid_str_pub;
+    rclcpp::Publisher<ichthus_msgs::msg::Pid>::SharedPtr pid_thr_pub;
+    rclcpp::Publisher<ichthus_msgs::msg::Pid>::SharedPtr pid_str_pub;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_thr_sub;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_str_sub;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr spd_sub;
