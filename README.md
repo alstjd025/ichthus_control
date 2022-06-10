@@ -49,7 +49,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-ICHTHUS CONTROLLER
+This is a controller code repository for ICHTHUS Project - 2022 University Student Autonomous Driving Competition, MOTIE, Korea
 
 Features:
 * Subject
@@ -67,13 +67,6 @@ Features:
 * [LIBCAN](https://github.com/matthiasbock/libcan)
 
 <p align="right">(<a href="#top">back to top</a>)</p>
-
-
-
-<!-- GETTING STARTED -->
-## Getting Started
-
-This is a controller repository for ICHTHUS Project for 2022 University Student Autonomous Driving Competition, MOTIE, Korea
 
 ### Prerequisites
 
@@ -109,7 +102,6 @@ No Installation Description now
 ## License
 
 ICHTHUS 2022 - Mobility Intelligence & Computing Systems Laboratory, Soongsil University.
-README Template Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
