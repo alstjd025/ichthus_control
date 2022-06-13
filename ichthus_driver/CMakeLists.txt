@@ -69,6 +69,12 @@ install(TARGETS
   mcm_management_node
   DESTINATION lib/${PROJECT_NAME})
 
+install(FILES
+  ${LIB_XMLMM}
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+
 install(DIRECTORY
   cfg
   DESTINATION share/${PROJECT_NAME}
