@@ -22,10 +22,10 @@ PIDController::PIDController(const rclcpp::NodeOptions & options)
   ref_str_sub = this->create_subscription<std_msgs::msg::Float64>(
     "ref_ang", 10, std::bind(&PIDController::pid_str_CB, this, std::placeholders::_1));
 
-  spd_sub = this->create_subscription<std_msgs::msg::Float64MultiArray>(
-    "WHL_SPD11", 10, std::bind(&PIDController::spd_CB, this, std::placeholders::_1));
-  ang_sub = this->create_subscription<std_msgs::msg::Float64MultiArray>(
-    "SAS11", 10, std::bind(&PIDController::ang_CB, this, std::placeholders::_1));
+  spd_sub = this->create_subscription<std_msgs::msg::Float64>(
+    "cur_vel", 10, std::bind(&PIDController::spd_CB, this, std::placeholders::_1));
+  ang_sub = this->create_subscription<std_msgs::msg::Float64>(
+    "cur_ang", 10, std::bind(&PIDController::ang_CB, this, std::placeholders::_1));
 
   mcm_status_sub = this->create_subscription<std_msgs::msg::Bool>(
     "mcm_status", 10, std::bind(&PIDController::mcm_status_CB, this, std::placeholders::_1));
@@ -180,7 +180,7 @@ void PIDController::pid_str_CB(const std_msgs::msg::Float64::SharedPtr msg)
   //RCLCPP_INFO(this->get_logger(), "Ref_Ang : %f", msg->data);
 }
 
-void PIDController::spd_CB(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
+void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
 /*
  ** actuation_thr, brk is control input velocity
  ** msg->data size is 8
@@ -198,11 +198,8 @@ void PIDController::spd_CB(const std_msgs::msg::Float64MultiArray::SharedPtr msg
   int idx = 0;
   int size = 4;
 
-  for (auto whl_spd = msg->data.begin(); idx < size; idx++, whl_spd++)
-  {
-    cur_vel += *whl_spd;
-  }
-  cur_vel /= size;
+  cur_vel = msg->data;
+
   vel_err = ref_vel - cur_vel;
   abs_vel_err = abs(vel_err);
 
@@ -247,7 +244,7 @@ void PIDController::spd_CB(const std_msgs::msg::Float64MultiArray::SharedPtr msg
 */
 }
 
-void PIDController::ang_CB(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
+void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
 /*
  ** actuation_sas is control input angle
  ** msg->data size is 5
@@ -261,9 +258,7 @@ void PIDController::ang_CB(const std_msgs::msg::Float64MultiArray::SharedPtr msg
   float err = 0;
   float slope = 0;
   
-  auto whl_ang = msg->data.begin();
-  cur_ang = *whl_ang; 
-  cur_vel = *(++whl_ang);
+  cur_ang = msg->data; 
   cur_ang = -cur_ang;
 
   err = ref_ang - cur_ang;
@@ -414,43 +409,17 @@ void PIDController::steer_pid(float err)
 
   actuation_sas = p_term + d_term;
 
-/*
-  if (ang_err > 0) {
-    actuation_sas = p_term + i_term + abs(d_term);
-  }
-  else {
-    actuation_sas = p_term + i_term - abs(d_term);
-  }
-*/
-  /*
-  if (ang_err > 10)
-    actuation_sas = p_term + i_term + d_term + STR_MINUMUM_TH;
-  else if (ang_err < -10)
-    actuation_sas = p_term + i_term + d_term - STR_MINUMUM_TH;
-  else
-    actuation_sas = p_term + i_term + d_term;
-  */
   //RCLCPP_INFO(this->get_logger(), "str_err : %f", err);
   //RCLCPP_INFO(this->get_logger(), "== Before ==\nact_sas : %f\n P_term : %f, D_term %f\n", actuation_sas, p_term, d_term);
   if (ang_err > 0) {
     if(actuation_sas >= max_output_str){
       actuation_sas = max_output_str;
     }
-    /*
-    else if(actuation_sas <= 0.05){
-      actuation_sas += 0.05;
-    }
-    */
   }
   else if (ang_err < 0){
     if(actuation_sas <= -max_output_str){
       actuation_sas = -max_output_str;
     }
-    /*
-    else if(actuation_sas >= -0.05){
-      actuation_sas -= 0.05;
-    }
-    */
   }
 
   //RCLCPP_INFO(this->get_logger(), "== After ==\nact_sas : %f\n", actuation_sas);

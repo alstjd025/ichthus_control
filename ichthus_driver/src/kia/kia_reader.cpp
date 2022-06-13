@@ -19,6 +19,8 @@ IchthusCANKIAReader::IchthusCANKIAReader(const rclcpp::NodeOptions & options)
 {
   RCLCPP_INFO(this->get_logger(), "===Start CAN Reader===");
   init_Param();
+  write_buffer = (double *)malloc(sizeof(double) * PAYLOADSIZE);
+  memset(write_buffer, 0, sizeof(float) * PAYLOADSIZE);
 
   adapter = new SocketCAN();
   adapter->open(&*can_interface.begin());
@@ -147,21 +149,8 @@ void IchthusCANKIAReader::rx_kia_Handler(can_frame_t* frame)
 
 void IchthusCANKIAReader::ang_handler(std_msgs::msg::Float64MultiArray msgs)
 {
-  auto time_now = this->now();
-
-  if (can_msg.can_data.size() > 0)
-  {
-    publishOdom();
-  }
-
-  std_msgs::msg::Header head;
-  head.stamp = time_now;
-  times.push_back(head);
-
-  can_msg.can_data.push_back(msgs.data[sas_ang_idx]);
-  can_msg.can_names.push_back("STR_ANG");
-  can_msg.can_data.push_back(msgs.data[sas_spd_idx]);
-  can_msg.can_names.push_back("STR_VEL");
+  memcpy(write_buffer, &msgs.data[sas_ang_idx], sizeof(double));
+  memcpy(write_buffer+1, &msgs.data[sas_spd_idx], sizeof(double));
   //RCLCPP_INFO(this->get_logger(), "ang_handler.");
 }
 
@@ -173,38 +162,55 @@ void IchthusCANKIAReader::spd_handler(std_msgs::msg::Float64MultiArray msgs)
     current_kmph += *whl_spd;
   }
   current_kmph /= whl4_spd_len;
+  memcpy(write_buffer+2, &current_kmph, sizeof(double));
   //RCLCPP_INFO(this->get_logger(), "spd_handler.");
 }
 
 void IchthusCANKIAReader::acc_handler(std_msgs::msg::Float64MultiArray msgs)
 {
-  can_msg.can_data.push_back(msgs.data[lat_acc_idx]);
-  can_msg.can_names.push_back("LAT_ACC");
-  can_msg.can_data.push_back(msgs.data[lon_acc_idx]);
-  can_msg.can_names.push_back("LON_ACC");
-  can_msg.can_data.push_back(msgs.data[yaw_rate_idx]);
-  can_msg.can_names.push_back("YAW_RATE");
+  std_msgs::msg::Header head;
+  auto time_now = this->now();
+  head.stamp = time_now;
+  times.push_back(head);
+  memcpy(write_buffer+3, &msgs.data[lat_acc_idx], sizeof(double));
+  memcpy(write_buffer+4, &msgs.data[lon_acc_idx], sizeof(double));
+  memcpy(write_buffer+5, &msgs.data[yaw_rate_idx], sizeof(double));
+  publishOdom();
+  
   //RCLCPP_INFO(this->get_logger(), "acc_handler.");
 }
 
 void IchthusCANKIAReader::gear_handler(std_msgs::msg::Float64MultiArray msgs)
 {
-  can_msg.can_data.push_back(msgs.data[gear_idx]);
-  can_msg.can_names.push_back("GEAR");
+  memcpy(write_buffer+6, &msgs.data[gear_idx], sizeof(double));
   //RCLCPP_INFO(this->get_logger(), "gear_handler.");
 }
 
 void IchthusCANKIAReader::publishOdom()
 {
   can_msg.head.stamp = times.front().stamp;
-  can_msg.can_data.push_back(current_kmph);
+  for(int i=0; i<PAYLOADSIZE; ++i){
+    can_msg.can_data.push_back(write_buffer[i]);
+  }
+  can_msg.can_names.push_back("STR_ANG");
+  can_msg.can_names.push_back("STR_VEL");
   can_msg.can_names.push_back("CUR_VEL");
+  can_msg.can_names.push_back("LAT_ACC");
+  can_msg.can_names.push_back("LON_ACC");
+  can_msg.can_names.push_back("YAW_RATE");
+  can_msg.can_names.push_back("GEAR");
   can_pub->publish(can_msg);
 
   can_msg.can_data.clear();
   can_msg.can_names.clear();
   times.clear();
-  //RCLCPP_INFO(this->get_logger(), "Publish Odom Message.");
+  RCLCPP_INFO(this->get_logger(), "STR_ANG %f", can_msg.can_data[0]);
+  RCLCPP_INFO(this->get_logger(), "STR_VEL %f", can_msg.can_data[1]);
+  RCLCPP_INFO(this->get_logger(), "CUR_VEL %f", can_msg.can_data[2]);
+  RCLCPP_INFO(this->get_logger(), "LAT_ACC %f", can_msg.can_data[3]);
+  RCLCPP_INFO(this->get_logger(), "LON_ACC %f", can_msg.can_data[4]);
+  RCLCPP_INFO(this->get_logger(), "YAW_RATE %f", can_msg.can_data[5]);
+  RCLCPP_INFO(this->get_logger(), "GEAR %f", can_msg.can_data[6]);
 }
 
 bool IchthusCANKIAReader::rx()

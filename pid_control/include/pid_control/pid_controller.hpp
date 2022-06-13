@@ -17,6 +17,8 @@
 
 /* User Header */
 #include "ichthus_msgs/msg/pid.hpp"
+#include "ichthus_msgs/msg/can.hpp"
+
 
 #define MINUMIUM_TH 0.11
 #define LT_STR_MIN_TH 0.05 //It's Right - 0.01
@@ -59,8 +61,8 @@ class PIDController : public rclcpp::Node
     rclcpp::Publisher<ichthus_msgs::msg::Pid>::SharedPtr pid_str_pub;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_thr_sub;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_str_sub;
-    rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr spd_sub;
-    rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr ang_sub;
+    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr spd_sub;
+    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ang_sub;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr mcm_status_sub;
 
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr extern_sub;
@@ -126,8 +128,8 @@ class PIDController : public rclcpp::Node
     void init_Param();
     void pid_thr_CB(const std_msgs::msg::Float64::SharedPtr);
     void pid_str_CB(const std_msgs::msg::Float64::SharedPtr);
-    void spd_CB(const std_msgs::msg::Float64MultiArray::SharedPtr);
-    void ang_CB(const std_msgs::msg::Float64MultiArray::SharedPtr);
+    void spd_CB(const std_msgs::msg::Float64::SharedPtr);
+    void ang_CB(const std_msgs::msg::Float64::SharedPtr);
     void mcm_status_CB(const std_msgs::msg::Bool::SharedPtr);
     void throttle_pid(float);
     void brake_pid(float);
@@ -144,3 +146,4 @@ class PIDController : public rclcpp::Node
 };
 
 }
+

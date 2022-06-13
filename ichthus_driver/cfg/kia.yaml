@@ -1,4 +1,4 @@
 /**:
   ros__parameters:
-    dbc_file: "/home/misys/colcon_ws/src/ichthus_can/src/hyundai_kia_generic.dbc"
-    can_interface: "can1"
+    dbc_file: "/autoware/src/drivers/ichthus_control/ichthus_driver/src/hyundai_kia_generic.dbc"
+    can_interface: "vcan0"

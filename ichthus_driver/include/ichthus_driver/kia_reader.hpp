@@ -14,12 +14,15 @@
 #include <string>
 #include <unordered_map>
 #include <fstream>
+#include <stdlib.h>
 
 #include "ichthus_msgs/msg/can.hpp"
 #include "ichthus_driver/SocketCAN.h"
 #include "ichthus_driver/SLCAN.h"
 #include "dbcppp/CApi.h"
 #include "dbcppp/Network.h"
+
+#define PAYLOADSIZE 7 
 
 namespace ichthus
 {
@@ -43,6 +46,19 @@ class IchthusCANKIAReader : public rclcpp::Node
 
     std::vector<std_msgs::msg::Header> times;
     ichthus_msgs::msg::Can can_msg;
+
+
+    /*
+    *  Write buffer payload
+    *  buffer[0] = STEER ANGLE  (deg)
+    *  buffer[1] = STEER VEL    (???)
+    *  buffer[2] = CUR VEL      (km/h)
+    *  buffer[3] = LAT ACC      (m/s^2)
+    *  buffer[4] = LON ACC      (m/s^2)
+    *  buffer[5] = YAW          (deg/s)
+    *  buffer[6] = GEAR
+    */
+    double* write_buffer;
 
     int sas_ang_idx;
     int sas_spd_idx;
