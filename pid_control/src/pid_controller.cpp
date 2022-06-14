@@ -27,14 +27,12 @@ PIDController::PIDController(const rclcpp::NodeOptions & options)
   ang_sub = this->create_subscription<std_msgs::msg::Float64>(
     "cur_ang", 10, std::bind(&PIDController::ang_CB, this, std::placeholders::_1));
 
-  mcm_status_sub = this->create_subscription<std_msgs::msg::Bool>(
-    "mcm_status", 10, std::bind(&PIDController::mcm_status_CB, this, std::placeholders::_1));
-
   extern_sub = this->create_subscription<std_msgs::msg::Int32>(
     "extern_cmd", 10, std::bind(&PIDController::extern_CB, this, std::placeholders::_1));
 
-
-  RCLCPP_INFO(this->get_logger(), "acc_max : %f", max_output_vel);
+  e_stop_sub = this->create_subscription<std_msgs::msg::Bool>(
+    "e_stop", 10, std::bind(&PIDController::e_stop_CB, this, std::placeholders::_1));
+  );
 }
 
 PIDController::~PIDController()
@@ -43,8 +41,7 @@ PIDController::~PIDController()
 
 void PIDController::init_Param()
 {
-  slope_idx = 0;
-  mcm_flag = false;
+  state = pid_state::PID_OFF;
 
   actuation_thr = 0;
   actuation_brk = 0;
@@ -60,7 +57,7 @@ void PIDController::init_Param()
   brk_integral = 0;
 
   str_error_last = 0;
-  str_integral = 0;
+  //str_integral = 0;
 
   thr_Kp = this->declare_parameter("thr_kp", (float)0.01);
   thr_Ki = this->declare_parameter("thr_ki", (float)0.0);
@@ -181,96 +178,105 @@ void PIDController::pid_str_CB(const std_msgs::msg::Float64::SharedPtr msg)
 }
 
 void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
-/*
- ** actuation_thr, brk is control input velocity
- ** msg->data size is 8
- ** WHL_SPD_FL, WHL_SPD_FR, WHL_SPD_RL, WHL_SPD_RR
- ** WHL_SPD_AliveCounter_LSB, WHL_SPD_AliveCounter_MSB
- ** WHL_SPD_CheckSum_LSB, WHL_SPD_CheckSum_MSB
- */
 {
-  ichthus_msgs::msg::Pid acc_data;
-  ichthus_msgs::msg::Pid brk_data;
-  ichthus_msgs::msg::Pid str_data;
-  float cur_vel = 0;
-  float vel_err = 0;
-  float abs_vel_err = 0;
-  int idx = 0;
-  int size = 4;
-
-  cur_vel = msg->data;
-
-  vel_err = ref_vel - cur_vel;
-  abs_vel_err = abs(vel_err);
-
-  /* set margin wrttien in header */
-  /* have to revise set calculate margin */
-  int VEL_BUFFER = choice_margin(vel_err);
-
-  /* Do Brake When First Start of Vehicle (Drive mode Change) */
-  if(ref_vel == -1){
-    acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
-    acc_data.frame_id = "Throttle";    
-    pid_thr_pub->publish(acc_data);
+  if (state == pid_state::PID_OFF) {
+    return;
+  }
+  else if (state == pid_state::PID_STANDBY) {
+    ichthus_msgs::msg::Pid brk_data;
     brk_data.data = 0.55;
     brk_data.frame_id = "Brake";  
     pid_thr_pub->publish(brk_data);
   }
-  else if (vel_err < -VEL_BUFFER) //BRK
-  {
-    acc_data.data = NO_SIGNAL;
-    acc_data.frame_id = "Throttle";    
-    pid_thr_pub->publish(acc_data);
-    brake_pid(abs_vel_err);
-    brk_data.data = actuation_brk;
-    brk_data.frame_id = "Brake";
+  else if (state == pid_state::E_STOP) {
+    ichthus_msgs::msg::Pid acc_data;
+    ichthus_msgs::msg::Pid brk_data;
+
+    if (actuation_brk > PREVIOUS_WORK_BRAKE) {
+      acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
+      acc_data.frame_id = "Throttle";
+      pid_thr_pub->publish(acc_data);
+    }
+
+    brk_data.data = 0.55;
+    brk_data.frame_id = "Brake";  
     pid_thr_pub->publish(brk_data);
   }
-  else  //ACC
-  { 
-    throttle_pid(vel_err);
-    brk_data.data = NO_SIGNAL;
-    brk_data.frame_id = "Brake";
-    pid_thr_pub->publish(brk_data);
-    acc_data.data = actuation_thr;
-    acc_data.frame_id = "Throttle";
-    pid_thr_pub->publish(acc_data);
+  else if (state == pid_state::PID_ON) {
+    ichthus_msgs::msg::Pid acc_data;
+    ichthus_msgs::msg::Pid brk_data;
+    ichthus_msgs::msg::Pid str_data;
+    float cur_vel = 0;
+    float vel_err = 0;
+    float abs_vel_err = 0;
+
+    cur_vel = msg->data;
+
+    vel_err = ref_vel - cur_vel;
+    abs_vel_err = abs(vel_err);
+
+    /* set margin wrttien in header */
+    /* have to revise set calculate margin */
+    int VEL_BUFFER = choice_margin(vel_err);
+
+    /* Do Brake When First Start of Vehicle (Drive mode Change) */
+    if(ref_vel == -1){
+      acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
+      acc_data.frame_id = "Throttle";    
+      pid_thr_pub->publish(acc_data);
+      brk_data.data = 0.55;
+      brk_data.frame_id = "Brake";  
+      pid_thr_pub->publish(brk_data);
+    }
+    else if (vel_err < -VEL_BUFFER) //BRK
+    {
+      acc_data.data = NO_SIGNAL;
+      acc_data.frame_id = "Throttle";    
+      pid_thr_pub->publish(acc_data);
+      brake_pid(abs_vel_err);
+      brk_data.data = actuation_brk;
+      brk_data.frame_id = "Brake";
+      pid_thr_pub->publish(brk_data);
+    }
+    else  //ACC
+    { 
+      throttle_pid(vel_err);
+      actuation_brk = NO_SIGNAL;
+      brk_data.data = NO_SIGNAL;
+      brk_data.frame_id = "Brake";
+      pid_thr_pub->publish(brk_data);
+      acc_data.data = actuation_thr;
+      acc_data.frame_id = "Throttle";
+      pid_thr_pub->publish(acc_data);
+    }
   }
-/*
-  RCLCPP_INFO(this->get_logger(), "acc : %f", acc_data.data);
-  RCLCPP_INFO(this->get_logger(), "brk : %f", brk_data.data);
-  RCLCPP_INFO(this->get_logger(), "acc_iterm : %f", thr_integral);
-  RCLCPP_INFO(this->get_logger(), "brk_iterm : %f", brk_integral);
-*/
 }
 
 void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
-/*
- ** actuation_sas is control input angle
- ** msg->data size is 5
- ** SAS_Angle, SAS_Speed, SAS_Stat, MsgCount, CheckSum
- */
 {
-  ichthus_msgs::msg::Pid data;
-  float cur_ang = 0;
-  float cur_vel = 0;
-  float tar_vel = 0;
-  float err = 0;
-  float slope = 0;
-  
-  cur_ang = msg->data; 
-  cur_ang = -cur_ang;
+  if (state == pid_state::PID_OFF) {
+    return;
+  }
+  else if (state == pid_state::PID_STANDBY) {
+    return;
+  }
+  else if (state == pid_state::PID_ON) {
+    ichthus_msgs::msg::Pid data;
+    float cur_ang = 0;
+    float err = 0;
+    
+    cur_ang = msg->data; 
+    cur_ang = -cur_ang;
 
-  err = ref_ang - cur_ang;
-  steer_pid(err);
+    err = ref_ang - cur_ang;
+    steer_pid(err);
 
-  [&](float cur_err, float cur_ang){
-    if(cur_err > 0){        //Steer Clockwise
+    if(err > 0){        //Steer Clockwise
       if(abs(cur_ang) > 40)
         actuation_sas += 0.13; 
       else 
         actuation_sas += 0.12;
-    }else if(cur_err < 0){  //Steer Counter-Clockwise
+    }else if(err < 0){  //Steer Counter-Clockwise
       if(abs(cur_ang) > 40)
         actuation_sas -= 0.08;
       else  
@@ -282,41 +288,10 @@ void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
     else if(actuation_sas <= -max_output_str){
       actuation_sas = -max_output_str;
     }
-  }(err, cur_ang);
 
-  data.data = actuation_sas;
-  RCLCPP_INFO(this->get_logger(), "actuation_sas : %f", actuation_sas);
-  RCLCPP_INFO(this->get_logger(), "err : %f", err);
-  data.frame_id = "Steer";
-  pid_str_pub->publish(data);
-
-}
-
-
-/*
-  if(slope_window.size() < SLOPE_SIZE){
-    slope_window.push_back(cur_vel);
-    
-  }else{
-    slope = slope_window.back() - slope_window.front();
-    slope /= 0.19;
-    RCLCPP_INFO(this->get_logger(), "slope : %f", slope);
-    slope_window.pop_front();
-    slope_window.push_back(cur_vel);
-  }
-*/
-
-void PIDController::mcm_status_CB(const std_msgs::msg::Bool::SharedPtr msg)
-{
-  //MCM Control Enable
-  if (msg->data == true)
-  {
-    mcm_flag = true;
-  }
-  //MCM Control Disable
-  else if (msg->data == false)
-  {
-    mcm_flag = false;
+    data.data = actuation_sas;
+    data.frame_id = "Steer";
+    pid_str_pub->publish(data);
   }
 }
 
@@ -337,10 +312,9 @@ void PIDController::throttle_pid(float err)
   {
       actuation_thr = 0;
   }
-  //RCLCPP_INFO(this->get_logger(), "throttle : %f", actuation_thr);
-  iterm_Lock.lock();
+
+  acc_iterm_Lock.lock();
   /* Add Error Window Logic */
-  //RCLCPP_INFO(this->get_logger(), "throttle_int_size : %d", thr_iterm_window.size());
   if(thr_iterm_window.size() < MAX_WIN_SIZE){
     thr_iterm_window.push_back(vel_err);
     thr_integral += vel_err;
@@ -351,9 +325,7 @@ void PIDController::throttle_pid(float err)
     thr_integral -= replaced;
     thr_integral += vel_err;
   } 
-  //RCLCPP_INFO(this->get_logger(), "throttle_error : %f", err);
-  //RCLCPP_INFO(this->get_logger(), "throttle_integral : %f", thr_integral);
-  iterm_Lock.unlock();
+  acc_iterm_Lock.unlock();
 
   thr_velocity_error_last = vel_err; 
 }
@@ -376,8 +348,7 @@ void PIDController::brake_pid(float err)
       actuation_brk = 0;
   }
 
-  iterm_Lock.lock();
-  /* Add Error Window Logic */
+  acc_iterm_Lock.lock();
   if(brk_iterm_window.size() < MAX_WIN_SIZE){
     brk_iterm_window.push_back(brk_err);
     brk_integral += brk_err;
@@ -388,9 +359,7 @@ void PIDController::brake_pid(float err)
     brk_integral -= replaced;
     brk_integral += brk_err;
   }
-  iterm_Lock.unlock();
-  //RCLCPP_INFO(this->get_logger(), "brake : %f", actuation_brk);
-  //RCLCPP_INFO(this->get_logger(), "brake_integral : %f", brk_integral);
+  acc_iterm_Lock.unlock();
 
   brk_velocity_error_last = brk_err;
 }
@@ -409,8 +378,6 @@ void PIDController::steer_pid(float err)
 
   actuation_sas = p_term + d_term;
 
-  //RCLCPP_INFO(this->get_logger(), "str_err : %f", err);
-  //RCLCPP_INFO(this->get_logger(), "== Before ==\nact_sas : %f\n P_term : %f, D_term %f\n", actuation_sas, p_term, d_term);
   if (ang_err > 0) {
     if(actuation_sas >= max_output_str){
       actuation_sas = max_output_str;
@@ -421,10 +388,8 @@ void PIDController::steer_pid(float err)
       actuation_sas = -max_output_str;
     }
   }
-
-  //RCLCPP_INFO(this->get_logger(), "== After ==\nact_sas : %f\n", actuation_sas);
+  /*
   str_iterm_Lock.lock();
-  /* Add Error Window Logic */
   if(str_iterm_window.size() < MAX_STR_WIN_SIZE){
     str_iterm_window.push_back(ang_err);
     str_integral += ang_err;
@@ -435,25 +400,45 @@ void PIDController::steer_pid(float err)
     str_integral -= replaced;
     str_integral += ang_err;
   }
-  //RCLCPP_INFO(this->get_logger(), "Ref_Ang : %f", ref_ang);
-  //RCLCPP_INFO(this->get_logger(), "Str_Ang : %f", ref_ang / 13.3);
-  //RCLCPP_INFO(this->get_logger(), "=====\nang_err : %f \nact_sas : %f\n", ang_err, actuation_sas);
   str_iterm_Lock.unlock();
+  */
 }
 
 void PIDController::extern_CB(const std_msgs::msg::Int32::SharedPtr msg)
 {
-  if(msg->data == 1){
-    iterm_Lock.lock();
+  if (msg->data == pid_state::PID_STANDBY) {
+    state = msg->data;
+  }
+  else if (msg->data == pid_state::PID_ON) {
+    state = msg->data;
+  }
+  else if (msg->data == pid_state::PID_OFF) {
+    state = msg->data;
+
+    acc_iterm_Lock.lock();
     thr_integral = 0;
+    thr_iterm_window.clear();
     brk_integral = 0;
-    iterm_Lock.unlock();
+    brk_iterm_window.clear();
+    acc_iterm_Lock.unlock();
+    /*
     str_iterm_Lock.lock();
     str_integral = 0;
+    str_iterm_window.clear();
     str_iterm_Lock.unlock();
+    */
   }
 }
 
+void PIDController::e_stop_CB(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  if (msg->data == true) {
+    state = pid_state::E_STOP;
+  }
+  else if (msg->data == false) {
+    return;
+  }
+}
 
 int PIDController::choice_margin(float err){
   float choice = abs(err);
