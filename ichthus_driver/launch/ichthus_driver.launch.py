@@ -24,16 +24,20 @@ def generate_launch_description():
             package = 'ichthus_driver',
             executable = 'mcm_management_node',
             parameters = [mcm_cfg],
+            output="log",
         ),
         Node(
             package = 'ichthus_driver',
             executable = 'kia_reader_node',
             parameters = [kia_cfg],
+            output="log",
+
         ),
         Node(
             package = 'pid_control',
             executable = 'pid_node',
             parameters = [pid_cfg],
+            output="screen",
         )
         
     ])
