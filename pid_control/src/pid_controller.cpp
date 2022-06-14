@@ -31,7 +31,7 @@ PIDController::PIDController(const rclcpp::NodeOptions & options)
     "mcm_status", 10, std::bind(&PIDController::mcm_status_CB, this, std::placeholders::_1));
 
   extern_sub = this->create_subscription<std_msgs::msg::Int32>(
-    "EXTERN_CMD", 10, std::bind(&PIDController::extern_CB, this, std::placeholders::_1));
+    "extern_cmd", 10, std::bind(&PIDController::extern_CB, this, std::placeholders::_1));
 
 
   RCLCPP_INFO(this->get_logger(), "acc_max : %f", max_output_vel);
