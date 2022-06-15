@@ -222,9 +222,16 @@ void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
     /* set margin wrttien in header */
     /* have to revise set calculate margin */
     int VEL_BUFFER = choice_margin(vel_err);
+    if(ref_vel == 0){
+      acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
+      acc_data.frame_id = "Throttle";    
+      pid_thr_pub->publish(acc_data);
+      brk_data.data = 0.45;
+      brk_data.frame_id = "Brake";  
+      pid_thr_pub->publish(brk_data);
 
-    /* Do Brake When First Start of Vehicle (Drive mode Change) */
-    if(ref_vel == -1){
+    }
+    else if(ref_vel == -1){
       acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
       acc_data.frame_id = "Throttle";    
       pid_thr_pub->publish(acc_data);
@@ -246,7 +253,7 @@ void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
     { 
       throttle_pid(vel_err);
       actuation_brk = NO_SIGNAL;
-      brk_data.data = NO_SIGNAL;
+      brk_data.data = actuation_brk;
       brk_data.frame_id = "Brake";
       pid_thr_pub->publish(brk_data);
       acc_data.data = actuation_thr;
