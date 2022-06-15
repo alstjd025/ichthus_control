@@ -32,7 +32,6 @@ PIDController::PIDController(const rclcpp::NodeOptions & options)
 
   e_stop_sub = this->create_subscription<std_msgs::msg::Bool>(
     "e_stop", 10, std::bind(&PIDController::e_stop_CB, this, std::placeholders::_1));
-  );
 }
 
 PIDController::~PIDController()
@@ -75,6 +74,8 @@ void PIDController::init_Param()
   max_output_brk = this->declare_parameter("max_brk", (float)0.65);
   max_output_str = this->declare_parameter("max_str", (float)0.35);
 
+  right_thres = this->declare_parameter("right_thres", (float)0.11);
+  left_thres = this->declare_parameter("left_thres", (float)-0.06);
 
   thr_Kp = this->get_parameter("thr_kp").as_double() / PID_CONSTANT;
   thr_Ki = this->get_parameter("thr_ki").as_double() / PID_CONSTANT;
@@ -91,6 +92,9 @@ void PIDController::init_Param()
   max_output_vel = this->get_parameter("max_vel").as_double() / PID_CONSTANT;
   max_output_brk = this->get_parameter("max_brk").as_double() / PID_CONSTANT;
   max_output_str = this->get_parameter("max_str").as_double() / PID_CONSTANT;
+
+  right_thres = this->get_parameter("right_thres").as_double();
+  left_thres = this->get_parameter("left_thres").as_double();
 }
 
 rcl_interfaces::msg::SetParametersResult
@@ -264,6 +268,7 @@ void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
     ichthus_msgs::msg::Pid data;
     float cur_ang = 0;
     float err = 0;
+    float threshold = 0;
     
     cur_ang = msg->data; 
     cur_ang = -cur_ang;
@@ -272,16 +277,22 @@ void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
     steer_pid(err);
 
     if(err > 0){        //Steer Clockwise
-      if(abs(cur_ang) > 40)
-        actuation_sas += 0.13; 
+      if(cur_ang >= 0) {
+        threshold = thres_table(cur_ang);
+        actuation_sas += threshold;
+      } 
       else 
-        actuation_sas += 0.12;
-    }else if(err < 0){  //Steer Counter-Clockwise
-      if(abs(cur_ang) > 40)
-        actuation_sas -= 0.08;
-      else  
-        actuation_sas -= 0.07;
+        actuation_sas += right_thres;
     }
+    else if(err < 0){  //Steer Counter-Clockwise
+      if(cur_ang < 0) {
+        threshold = thres_table(cur_ang);
+        actuation_sas += threshold;
+      }
+      else  
+        actuation_sas += left_thres;
+    }
+
     if(actuation_sas >= max_output_str){
       actuation_sas = max_output_str;
     }
@@ -292,6 +303,9 @@ void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
     data.data = actuation_sas;
     data.frame_id = "Steer";
     pid_str_pub->publish(data);
+    RCLCPP_INFO(this->get_logger(), "error : %f", err);
+    RCLCPP_INFO(this->get_logger(), "thres : %f", threshold);
+    RCLCPP_INFO(this->get_logger(), "angle : %f", cur_ang);
   }
 }
 
@@ -438,6 +452,18 @@ void PIDController::e_stop_CB(const std_msgs::msg::Bool::SharedPtr msg)
   else if (msg->data == false) {
     return;
   }
+}
+
+
+float PIDController::thres_table(float ang) {
+  float thres = 0;
+  if (ang >= 0) {
+    thres = ang / X_SLOPE + right_thres;
+  }
+  else if (ang < 0) {
+    thres = ang / X_SLOPE + left_thres;
+  }
+  return thres;
 }
 
 int PIDController::choice_margin(float err){

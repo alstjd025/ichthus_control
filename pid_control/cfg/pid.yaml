@@ -9,6 +9,8 @@
     br_kp: 150.0
     br_ki: 40.0 #150.0
     br_kd: 0.0
-    str_kp: 30.0 # 75.0. 125.0
+    str_kp: 25.0 # 75.0. 125.0
     str_ki: 0.0
     str_kd: 600.0 # 75.0, 125.0, 500.0
+    right_thres: 0.07
+    left_thres: -0.02

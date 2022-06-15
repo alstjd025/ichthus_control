@@ -204,13 +204,13 @@ void IchthusCANKIAReader::publishOdom()
   can_msg.can_data.clear();
   can_msg.can_names.clear();
   times.clear();
-  RCLCPP_INFO(this->get_logger(), "STR_ANG %f", can_msg.can_data[0]);
-  RCLCPP_INFO(this->get_logger(), "STR_VEL %f", can_msg.can_data[1]);
-  RCLCPP_INFO(this->get_logger(), "CUR_VEL %f", can_msg.can_data[2]);
-  RCLCPP_INFO(this->get_logger(), "LAT_ACC %f", can_msg.can_data[3]);
-  RCLCPP_INFO(this->get_logger(), "LON_ACC %f", can_msg.can_data[4]);
-  RCLCPP_INFO(this->get_logger(), "YAW_RATE %f", can_msg.can_data[5]);
-  RCLCPP_INFO(this->get_logger(), "GEAR %f", can_msg.can_data[6]);
+  // RCLCPP_INFO(this->get_logger(), "STR_ANG %f", can_msg.can_data[0]);
+  // RCLCPP_INFO(this->get_logger(), "STR_VEL %f", can_msg.can_data[1]);
+  // RCLCPP_INFO(this->get_logger(), "CUR_VEL %f", can_msg.can_data[2]);
+  // RCLCPP_INFO(this->get_logger(), "LAT_ACC %f", can_msg.can_data[3]);
+  // RCLCPP_INFO(this->get_logger(), "LON_ACC %f", can_msg.can_data[4]);
+  // RCLCPP_INFO(this->get_logger(), "YAW_RATE %f", can_msg.can_data[5]);
+  // RCLCPP_INFO(this->get_logger(), "GEAR %f", can_msg.can_data[6]);
 }
 
 bool IchthusCANKIAReader::rx()

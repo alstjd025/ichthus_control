@@ -28,6 +28,7 @@
 #define MAX_STR_WIN_SIZE 50 /* iterm window maximam size */
 #define PID_CONSTANT 10000 /*Will devide the loaded parameters*/
 #define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
+#define X_SLOPE 11250
 
 /*속도 변화량에 따라 케이스를 나눌것.(idea update)
   delta_vel<=10km/h margin 1
@@ -121,6 +122,9 @@ class PIDController : public rclcpp::Node
     float max_output_str;
     float max_rate;
 
+    float right_thres;
+    float left_thres;
+
     int state;
 
     margin_table margin;
@@ -147,6 +151,8 @@ class PIDController : public rclcpp::Node
     void update_ref_ang(float vel);
     float get_ref_ang();
     float get_ref_vel();
+
+    float thres_table(float ang);
 
     int choice_margin(float err);
 };
