@@ -27,18 +27,8 @@
 #define MAX_WIN_SIZE 20 /* iterm window maximam size */
 #define MAX_STR_WIN_SIZE 50 /* iterm window maximam size */
 #define PID_CONSTANT 10000 /*Will devide the loaded parameters*/
-#define SLOPE_SIZE 19 /* slope window maximam size */
+#define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
 
-
-enum margin_table{
-  CASE_A = 1,
-  CASE_B,
-  CASE_C,
-  CASE_D,
-  CASE_E,
-  CASE_F,
-  CASE_G,
-};
 /*속도 변화량에 따라 케이스를 나눌것.(idea update)
   delta_vel<=10km/h margin 1
   delta_vel<=20km/h margin 2
@@ -48,6 +38,27 @@ enum margin_table{
   delta_vel<=60km/h margin 6
   delta_vel<=70km/h margin 7
 */
+enum margin_table{
+  CASE_A = 1,
+  CASE_B,
+  CASE_C,
+  CASE_D,
+  CASE_E,
+  CASE_F,
+  CASE_G,
+};
+
+/*
+ * PID_OFF : 사람 제어 - Reference 갱신하지만 PID 계산 x
+ * PID_STANDBY : 오토 제어 - Full Braking 상태, P -> D 기어 변경
+ * PID_ON : 오토 제어 - PID 계산
+ */
+enum pid_state{
+ PID_STANDBY = 1,
+ PID_ON,
+ PID_OFF,
+ E_STOP,
+};
 
 
 
@@ -63,19 +74,18 @@ class PIDController : public rclcpp::Node
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_str_sub;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr spd_sub;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ang_sub;
-    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr mcm_status_sub;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr e_stop_sub;
 
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr extern_sub;
 
     OnSetParametersCallbackHandle::SharedPtr cb_handle;
 
-    std::mutex ref_ang_Lock;
-    std::mutex iterm_Lock;
+    std::mutex acc_iterm_Lock;
     std::mutex str_iterm_Lock;
 
     std::deque<float> thr_iterm_window; // 5 seconds error will accumulated
     std::deque<float> brk_iterm_window; 
-    std::deque<float> str_iterm_window; 
+    //std::deque<float> str_iterm_window; 
 
     float actuation_thr;
     float actuation_brk;
@@ -104,18 +114,14 @@ class PIDController : public rclcpp::Node
     float brk_integral;
 
     float str_error_last;
-    float str_integral;
+    //float str_integral;
 
     float max_output_vel;
     float max_output_brk; 
     float max_output_str;
     float max_rate;
 
-    
-    std::deque<float> slope_window; 
-    int slope_idx;
-
-    bool mcm_flag;
+    int state;
 
     margin_table margin;
   public:
@@ -130,7 +136,7 @@ class PIDController : public rclcpp::Node
     void pid_str_CB(const std_msgs::msg::Float64::SharedPtr);
     void spd_CB(const std_msgs::msg::Float64::SharedPtr);
     void ang_CB(const std_msgs::msg::Float64::SharedPtr);
-    void mcm_status_CB(const std_msgs::msg::Bool::SharedPtr);
+    void e_stop_CB(const std_msgs::msg::Bool::SharedPtr);
     void throttle_pid(float);
     void brake_pid(float);
     void steer_pid(float);
