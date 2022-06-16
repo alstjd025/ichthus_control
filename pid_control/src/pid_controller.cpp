@@ -32,6 +32,9 @@ PIDController::PIDController(const rclcpp::NodeOptions & options)
 
   e_stop_sub = this->create_subscription<std_msgs::msg::Bool>(
     "e_stop", 10, std::bind(&PIDController::e_stop_CB, this, std::placeholders::_1));
+
+  imu_sub = this->create_subscription<sensor_msgs::msg::Imu>(
+    "/imu/data", 10, std::bind(&PIDController::imu_CB, this, std::placeholders::_1));
 }
 
 PIDController::~PIDController()
@@ -169,6 +172,18 @@ PIDController::param_CB(const std::vector<rclcpp::Parameter> & params)
   return result;
 }
 
+void PIDController::imu_CB(const sensor_msgs::msg::Imu::SharedPtr msg)
+{
+  auto data = getRPY(msg->orientation)
+  cur_slope = data->y;
+  RCLCPP_INFO(this->get_logger(), "SLOPE : %f deg", DEGtoRAD(cur_slope));
+}
+
+float PIDController::applySlopeCompensation(float output_before_comp)
+{
+  return output_before_comp + output_before_comp * sin(cur_slope);
+}
+
 void PIDController::pid_thr_CB(const std_msgs::msg::Float64::SharedPtr msg)
 {
   ref_vel = msg->data;
@@ -221,7 +236,7 @@ void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
 
     /* set margin wrttien in header */
     /* have to revise set calculate margin */
-    int VEL_BUFFER = choice_margin(vel_err);
+    int VEL_BUFFER = getMargine(vel_err, ref_vel);
     if(ref_vel == 0){
       acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
       acc_data.frame_id = "Throttle";    
@@ -245,7 +260,7 @@ void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
       acc_data.frame_id = "Throttle";    
       pid_thr_pub->publish(acc_data);
       brake_pid(abs_vel_err);
-      brk_data.data = actuation_brk;
+      brk_data.data = actuation_brk_after_slope;
       brk_data.frame_id = "Brake";
       pid_thr_pub->publish(brk_data);
     }
@@ -256,7 +271,7 @@ void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
       brk_data.data = actuation_brk;
       brk_data.frame_id = "Brake";
       pid_thr_pub->publish(brk_data);
-      acc_data.data = actuation_thr;
+      acc_data.data = actuation_thr_after_slope;
       acc_data.frame_id = "Throttle";
       pid_thr_pub->publish(acc_data);
     }
@@ -277,7 +292,6 @@ void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
     float err = 0;
     float threshold = 0;
     
-    cur_ang = msg->data; 
     cur_ang = -cur_ang;
 
     err = ref_ang - cur_ang;
@@ -286,6 +300,7 @@ void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
     if(err > 0){        //Steer Clockwise
       if(cur_ang >= 0) {
         threshold = thres_table(cur_ang);
+        cur_ang = msg->data; 
         actuation_sas += threshold;
       } 
       else 
@@ -324,14 +339,17 @@ void PIDController::throttle_pid(float err)
   float d_term = thr_Kd * (vel_err - thr_velocity_error_last);
 
   actuation_thr = p_term + i_term + d_term + MINUMIUM_TH;
-
-  if(actuation_thr >= max_output_vel)
+  RCLCPP_INFO(this->get_logger(), "Throttle raw %f", actuation_thr);
+  actuation_thr_after_slope = applySlopeCompensation(actuation_thr);
+  RCLCPP_INFO(this->get_logger(), "Throttle slope %f", actuation_thr_after_slope);
+  
+  if(actuation_thr_after_slope >= max_output_vel)
   {
-      actuation_thr = max_output_vel;
+      actuation_thr_after_slope = max_output_vel;
   }
-  else if( actuation_thr <= 0)
+  else if( actuation_thr_after_slope <= 0)
   {
-      actuation_thr = 0;
+      actuation_thr_after_slope = 0;
   }
 
   acc_iterm_Lock.lock();
@@ -359,14 +377,18 @@ void PIDController::brake_pid(float err)
   float d_term = br_Kd * (brk_err - brk_velocity_error_last);
 
   actuation_brk = p_term + i_term + d_term;
+ 
+  RCLCPP_INFO(this->get_logger(), "Brake raw %f", actuation_brk);
+  actuation_brk_after_slope = applySlopeCompensation(actuation_brk);
+  RCLCPP_INFO(this->get_logger(), "Brake slope %f", actuation_brk_after_slope);
 
-  if(actuation_brk >= max_output_brk)
+  if(actuation_brk_after_slope >= max_output_brk)
   {
-      actuation_brk = max_output_brk;
+      actuation_brk_after_slope = max_output_brk;
   }
-  else if( actuation_brk <= 0)
+  else if( actuation_brk_after_slope <= 0)
   {
-      actuation_brk = 0;
+      actuation_brk_after_slope = 0;
   }
 
   acc_iterm_Lock.lock();
@@ -473,8 +495,12 @@ float PIDController::thres_table(float ang) {
   return thres;
 }
 
-int PIDController::choice_margin(float err){
+int PIDController::getMargine(float err, float ref_vel){
   float choice = abs(err);
+  if(ref_vel <= 10){
+
+  }
+
 
   if(choice <= 10){
     return margin_table::CASE_A;

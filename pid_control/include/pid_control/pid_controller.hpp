@@ -6,6 +6,9 @@
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
+#include "tier4_autoware_utils/geometry/geometry.hpp"
 
 /* Standard Header */
 #include <mutex>
@@ -19,7 +22,7 @@
 #include "ichthus_msgs/msg/pid.hpp"
 #include "ichthus_msgs/msg/can.hpp"
 
-
+#define DEGtoRAD(deg) ((deg) * (0.017453))
 #define MINUMIUM_TH 0.11
 #define LT_STR_MIN_TH 0.05 //It's Right - 0.01
 #define RT_STR_MIN_TH 0.09 //It's Right - 0.01
@@ -38,6 +41,7 @@
   delta_vel<=50km/h margin 5
   delta_vel<=60km/h margin 6
   delta_vel<=70km/h margin 7
+  /imu/data
 */
 enum margin_table{
   CASE_A = 1,
@@ -75,6 +79,7 @@ class PIDController : public rclcpp::Node
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_str_sub;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr spd_sub;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ang_sub;
+    rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr e_stop_sub;
 
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr extern_sub;
@@ -91,10 +96,17 @@ class PIDController : public rclcpp::Node
     float actuation_thr;
     float actuation_brk;
     float actuation_sas;
+
+    float actuation_thr_after_slope;
+    float actuation_brk_after_slope;
+    
+
     float output_vel;
     float output_ang;
     float ref_vel;
     float ref_ang;
+
+    float cur_slope;
 
     float thr_Kp;
     float thr_Ki;
@@ -141,6 +153,7 @@ class PIDController : public rclcpp::Node
     void spd_CB(const std_msgs::msg::Float64::SharedPtr);
     void ang_CB(const std_msgs::msg::Float64::SharedPtr);
     void e_stop_CB(const std_msgs::msg::Bool::SharedPtr);
+    void imu_CB(const sensor_msgs::msg::Imu::SharedPtr);
     void throttle_pid(float);
     void brake_pid(float);
     void steer_pid(float);
@@ -154,7 +167,8 @@ class PIDController : public rclcpp::Node
 
     float thres_table(float ang);
 
-    int choice_margin(float err);
+    int getMargine(float err, float ref_vel);
+    float applySlopeCompensation(float output_before_comp);
 };
 
 }
