@@ -172,11 +172,20 @@ PIDController::param_CB(const std::vector<rclcpp::Parameter> & params)
   return result;
 }
 
+geometry_msgs::msg::Vector3 PIDController::getRPY(geometry_msgs::msg::Quaternion& quat)
+{
+  geometry_msgs::msg::Vector3 rpy;
+  tf2::Quaternion q(quat.x, quat.y, quat.z, quat.w);
+  tf2::Matrix3x3(q).getRPY(rpy.x, rpy.y, rpy.z);
+  return rpy;
+}
+
 void PIDController::imu_CB(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
-  auto data = getRPY(msg->orientation)
-  cur_slope = data->y;
-  RCLCPP_INFO(this->get_logger(), "SLOPE : %f deg", DEGtoRAD(cur_slope));
+  auto data = getRPY(msg->orientation);
+  RCLCPP_INFO(this->get_logger(), "SLOPE RAW : %f", data.y);
+  cur_slope = data.y;
+  RCLCPP_INFO(this->get_logger(), "SLOPE : %f deg", cur_slope * (180 / 3.14));
 }
 
 float PIDController::applySlopeCompensation(float output_before_comp)
@@ -237,7 +246,7 @@ void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
     /* set margin wrttien in header */
     /* have to revise set calculate margin */
     int VEL_BUFFER = getMargine(vel_err, ref_vel);
-    if(ref_vel == 0){
+    if(ref_vel < 0.03){
       acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
       acc_data.frame_id = "Throttle";    
       pid_thr_pub->publish(acc_data);
@@ -325,9 +334,9 @@ void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
     data.data = actuation_sas;
     data.frame_id = "Steer";
     pid_str_pub->publish(data);
-    RCLCPP_INFO(this->get_logger(), "error : %f", err);
-    RCLCPP_INFO(this->get_logger(), "thres : %f", threshold);
-    RCLCPP_INFO(this->get_logger(), "angle : %f", cur_ang);
+    //RCLCPP_INFO(this->get_logger(), "error : %f", err);
+    //RCLCPP_INFO(this->get_logger(), "thres : %f", threshold);
+    //RCLCPP_INFO(this->get_logger(), "angle : %f", cur_ang);
   }
 }
 
@@ -341,6 +350,7 @@ void PIDController::throttle_pid(float err)
   actuation_thr = p_term + i_term + d_term + MINUMIUM_TH;
   RCLCPP_INFO(this->get_logger(), "Throttle raw %f", actuation_thr);
   actuation_thr_after_slope = applySlopeCompensation(actuation_thr);
+  //actuation_thr_after_slope = actuation_thr;
   RCLCPP_INFO(this->get_logger(), "Throttle slope %f", actuation_thr_after_slope);
   
   if(actuation_thr_after_slope >= max_output_vel)
@@ -380,6 +390,7 @@ void PIDController::brake_pid(float err)
  
   RCLCPP_INFO(this->get_logger(), "Brake raw %f", actuation_brk);
   actuation_brk_after_slope = applySlopeCompensation(actuation_brk);
+  //actuation_brk_after_slope = actuation_brk;
   RCLCPP_INFO(this->get_logger(), "Brake slope %f", actuation_brk_after_slope);
 
   if(actuation_brk_after_slope >= max_output_brk)

@@ -8,7 +8,9 @@
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
-#include "tier4_autoware_utils/geometry/geometry.hpp"
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+// #include "tier4_autoware_utils/geometry/geometry.hpp"
 
 /* Standard Header */
 #include <mutex>
@@ -160,6 +162,7 @@ class PIDController : public rclcpp::Node
 
     void extern_CB(const std_msgs::msg::Int32::SharedPtr);
 
+    geometry_msgs::msg::Vector3 getRPY(geometry_msgs::msg::Quaternion& quat);
     void update_ref_spd(float vel);
     void update_ref_ang(float vel);
     float get_ref_ang();

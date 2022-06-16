@@ -16,8 +16,10 @@ find_package(rcl_interfaces REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(tier4_autoware_utils REQUIRED)
+# find_package(tier4_autoware_utils REQUIRED)
+find_package(tf2 REQUIRED)
 find_package(ichthus_msgs REQUIRED)
+# find_package(tf2_geometry_msgs REQUIRED)
 
 include_directories(include)
 
@@ -25,7 +27,7 @@ include_directories(include)
 add_library(pid_controller STATIC src/pid_controller.cpp)
 target_compile_features(pid_controller PRIVATE cxx_std_17)
 ament_target_dependencies(pid_controller rclcpp rcl_interfaces
-  ichthus_msgs std_msgs geometry_msgs tier4_autoware_utils sensor_msgs)
+  ichthus_msgs std_msgs geometry_msgs sensor_msgs tf2)
 target_include_directories(pid_controller
   PUBLIC
   #$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
