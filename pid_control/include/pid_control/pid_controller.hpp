@@ -25,6 +25,7 @@
 #include "ichthus_msgs/msg/can.hpp"
 
 #define DEGtoRAD(deg) ((deg) * (0.017453))
+#define RADtoDEG(rad) ((rad) / (0.017453))
 #define MINUMIUM_TH 0.11
 #define LT_STR_MIN_TH 0.05 //It's Right - 0.01
 #define RT_STR_MIN_TH 0.09 //It's Right - 0.01
@@ -34,6 +35,7 @@
 #define PID_CONSTANT 10000 /*Will devide the loaded parameters*/
 #define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
 #define X_SLOPE 11250
+#define IMU_ERROR 2 /**/
 
 /*속도 변화량에 따라 케이스를 나눌것.(idea update)
   delta_vel<=10km/h margin 1
@@ -139,6 +141,12 @@ class PIDController : public rclcpp::Node
     float right_thres;
     float left_thres;
 
+    float comfort_time;
+    float hz;
+    float stop_dt;
+    float brk_stop_dt;
+    bool start_stopping;
+
     int state;
 
     margin_table margin;
@@ -162,7 +170,6 @@ class PIDController : public rclcpp::Node
 
     void extern_CB(const std_msgs::msg::Int32::SharedPtr);
 
-    geometry_msgs::msg::Vector3 getRPY(geometry_msgs::msg::Quaternion& quat);
     void update_ref_spd(float vel);
     void update_ref_ang(float vel);
     float get_ref_ang();
@@ -172,6 +179,9 @@ class PIDController : public rclcpp::Node
 
     int getMargine(float err, float ref_vel);
     float applySlopeCompensation(float output_before_comp);
+    geometry_msgs::msg::Vector3 getRPY(geometry_msgs::msg::Quaternion& quat);
+
+
 };
 
 }

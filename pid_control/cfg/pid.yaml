@@ -14,3 +14,4 @@
     str_kd: 600.0 # 75.0, 125.0, 500.0
     right_thres: 0.07
     left_thres: -0.02
+    comfort_time: 1.5

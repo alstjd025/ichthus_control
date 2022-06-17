@@ -80,6 +80,8 @@ void PIDController::init_Param()
   right_thres = this->declare_parameter("right_thres", (float)0.11);
   left_thres = this->declare_parameter("left_thres", (float)-0.06);
 
+  comfort_time = this->declare_parameter("comfort_time", (float)1.5);
+
   thr_Kp = this->get_parameter("thr_kp").as_double() / PID_CONSTANT;
   thr_Ki = this->get_parameter("thr_ki").as_double() / PID_CONSTANT;
   thr_Kd = this->get_parameter("thr_kd").as_double() / PID_CONSTANT;
@@ -98,6 +100,13 @@ void PIDController::init_Param()
 
   right_thres = this->get_parameter("right_thres").as_double();
   left_thres = this->get_parameter("left_thres").as_double();
+
+  comfort_time = this->get_parameter("comfort_time").as_double();
+
+  hz = 100;
+  stop_dt = hz * comfort_time;
+  brk_stop_dt = 0;
+  start_stopping = true;
 }
 
 rcl_interfaces::msg::SetParametersResult
@@ -183,14 +192,14 @@ geometry_msgs::msg::Vector3 PIDController::getRPY(geometry_msgs::msg::Quaternion
 void PIDController::imu_CB(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
   auto data = getRPY(msg->orientation);
-  RCLCPP_INFO(this->get_logger(), "SLOPE RAW : %f", data.y);
+  //RCLCPP_INFO(this->get_logger(), "SLOPE RAW : %f", data.y);
   cur_slope = data.y;
-  RCLCPP_INFO(this->get_logger(), "SLOPE : %f deg", cur_slope * (180 / 3.14));
+  //RCLCPP_INFO(this->get_logger(), "SLOPE : %f deg", cur_slope * (180 / 3.14));
 }
 
 float PIDController::applySlopeCompensation(float output_before_comp)
 {
-  return output_before_comp + output_before_comp * sin(cur_slope);
+  return output_before_comp + output_before_comp * sin(cur_slope * IMU_ERROR);
 }
 
 void PIDController::pid_thr_CB(const std_msgs::msg::Float64::SharedPtr msg)
@@ -247,13 +256,26 @@ void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
     /* have to revise set calculate margin */
     int VEL_BUFFER = getMargine(vel_err, ref_vel);
     if(ref_vel < 0.03){
-      acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
-      acc_data.frame_id = "Throttle";    
-      pid_thr_pub->publish(acc_data);
-      brk_data.data = 0.45;
+      if (actuation_thr == NO_SIGNAL && start_stopping == true) {
+        brk_stop_dt = (max_output_brk - actuation_brk) / stop_dt;
+        start_stopping = false;
+      }
+      else if (actuation_brk == NO_SIGNAL && start_stopping == true) {
+        acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
+        acc_data.frame_id = "Throttle";    
+        pid_thr_pub->publish(acc_data);
+        brk_stop_dt = max_output_brk / stop_dt;
+        start_stopping = false;
+      }
+
+      actuation_brk += brk_stop_dt;
+      if (actuation_brk > max_output_brk) {
+        actuation_brk = max_output_brk;
+      }
+
+      brk_data.data = actuation_brk;
       brk_data.frame_id = "Brake";  
       pid_thr_pub->publish(brk_data);
-
     }
     else if(ref_vel == -1){
       acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
@@ -272,6 +294,7 @@ void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
       brk_data.data = actuation_brk_after_slope;
       brk_data.frame_id = "Brake";
       pid_thr_pub->publish(brk_data);
+      start_stopping = true;
     }
     else  //ACC
     { 
@@ -283,6 +306,7 @@ void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
       acc_data.data = actuation_thr_after_slope;
       acc_data.frame_id = "Throttle";
       pid_thr_pub->publish(acc_data);
+      start_stopping = true;
     }
   }
 }
