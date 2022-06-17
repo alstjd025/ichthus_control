@@ -372,10 +372,7 @@ void PIDController::throttle_pid(float err)
   float d_term = thr_Kd * (vel_err - thr_velocity_error_last);
 
   actuation_thr = p_term + i_term + d_term + MINUMIUM_TH;
-  RCLCPP_INFO(this->get_logger(), "Throttle raw %f", actuation_thr);
   actuation_thr_after_slope = applySlopeCompensation(actuation_thr);
-  //actuation_thr_after_slope = actuation_thr;
-  RCLCPP_INFO(this->get_logger(), "Throttle slope %f", actuation_thr_after_slope);
   
   if(actuation_thr_after_slope >= max_output_vel)
   {
@@ -412,10 +409,7 @@ void PIDController::brake_pid(float err)
 
   actuation_brk = p_term + i_term + d_term;
  
-  RCLCPP_INFO(this->get_logger(), "Brake raw %f", actuation_brk);
   actuation_brk_after_slope = applySlopeCompensation(actuation_brk);
-  //actuation_brk_after_slope = actuation_brk;
-  RCLCPP_INFO(this->get_logger(), "Brake slope %f", actuation_brk_after_slope);
 
   if(actuation_brk_after_slope >= max_output_brk)
   {

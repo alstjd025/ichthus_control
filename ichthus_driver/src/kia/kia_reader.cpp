@@ -157,11 +157,14 @@ void IchthusCANKIAReader::ang_handler(std_msgs::msg::Float64MultiArray msgs)
 void IchthusCANKIAReader::spd_handler(std_msgs::msg::Float64MultiArray msgs)
 {
   int idx = 0;
+  /*
   for (auto whl_spd = msgs.data.begin(); idx < whl4_spd_len; idx++, whl_spd++)
   {
     current_kmph += *whl_spd;
   }
   current_kmph /= whl4_spd_len;
+  */
+  current_kmph = (msgs.data[2] + msgs.data[3]) / 2.0;
   memcpy(write_buffer+2, &current_kmph, sizeof(double));
   //RCLCPP_INFO(this->get_logger(), "spd_handler.");
 }
