@@ -17,6 +17,7 @@
 #include <stdlib.h>
 
 #include "ichthus_msgs/msg/can.hpp"
+#include "ichthus_msgs/msg/common.hpp"
 #include "ichthus_driver/SocketCAN.h"
 #include "ichthus_driver/SLCAN.h"
 #include "dbcppp/CApi.h"
@@ -31,6 +32,8 @@ class IchthusCANKIAReader : public rclcpp::Node
 {
   private:
     rclcpp::Publisher<ichthus_msgs::msg::Can>::SharedPtr can_pub;
+    rclcpp::Publisher<ichthus_msgs::msg::Common>::SharedPtr cur_vel_pub;
+    rclcpp::Publisher<ichthus_msgs::msg::Common>::SharedPtr cur_ang_pub;
 
     OnSetParametersCallbackHandle::SharedPtr cb_handle;
 
@@ -46,6 +49,8 @@ class IchthusCANKIAReader : public rclcpp::Node
 
     std::vector<std_msgs::msg::Header> times;
     ichthus_msgs::msg::Can can_msg;
+    ichthus_msgs::msg::Common cur_vel_msg;
+    ichthus_msgs::msg::Common cur_ang_msg;
 
 
     /*

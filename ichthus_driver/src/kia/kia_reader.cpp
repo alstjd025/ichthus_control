@@ -28,6 +28,8 @@ IchthusCANKIAReader::IchthusCANKIAReader(const rclcpp::NodeOptions & options)
   load_dbc(ecu_ids, dbc_file);
 
   can_pub = this->create_publisher<ichthus_msgs::msg::Can>("odom_raw", 1);
+  cur_ang_pub = this->create_publisher<ichthus_msgs::msg::Common>("cur_ang", 1);
+  cur_vel_pub = this->create_publisher<ichthus_msgs::msg::Common>("cur_vel", 1);
 
   //cb_handle = this->add_on_set_parameters_callback(
   //  std::bind(&IchthusCANKIAReader::param_CB, this, std::placeholders::_1));
@@ -151,21 +153,15 @@ void IchthusCANKIAReader::ang_handler(std_msgs::msg::Float64MultiArray msgs)
 {
   memcpy(write_buffer, &msgs.data[sas_ang_idx], sizeof(double));
   memcpy(write_buffer+1, &msgs.data[sas_spd_idx], sizeof(double));
+  cur_ang_msg.data = msgs.data[sas_ang_idx];
   //RCLCPP_INFO(this->get_logger(), "ang_handler.");
 }
 
 void IchthusCANKIAReader::spd_handler(std_msgs::msg::Float64MultiArray msgs)
 {
-  int idx = 0;
-  /*
-  for (auto whl_spd = msgs.data.begin(); idx < whl4_spd_len; idx++, whl_spd++)
-  {
-    current_kmph += *whl_spd;
-  }
-  current_kmph /= whl4_spd_len;
-  */
   current_kmph = (msgs.data[2] + msgs.data[3]) / 2.0;
   memcpy(write_buffer+2, &current_kmph, sizeof(double));
+  cur_vel_msg.data = current_kmph;
   //RCLCPP_INFO(this->get_logger(), "spd_handler.");
 }
 
@@ -191,7 +187,11 @@ void IchthusCANKIAReader::gear_handler(std_msgs::msg::Float64MultiArray msgs)
 
 void IchthusCANKIAReader::publishOdom()
 {
-  can_msg.head.stamp = times.front().stamp;
+  auto cur_time = times.front().stamp;
+  can_msg.head.stamp = cur_time;
+  cur_ang_msg.header.stamp = cur_time;
+  cur_vel_msg.header.stamp = cur_time;
+  
   for(int i=0; i<PAYLOADSIZE; ++i){
     can_msg.can_data.push_back(write_buffer[i]);
   }
@@ -203,6 +203,8 @@ void IchthusCANKIAReader::publishOdom()
   can_msg.can_names.push_back("YAW_RATE");
   can_msg.can_names.push_back("GEAR");
   can_pub->publish(can_msg);
+  cur_ang_pub->publish(cur_ang_msg);
+  cur_vel_pub->publish(cur_vel_msg);
 
   can_msg.can_data.clear();
   can_msg.can_names.clear();
