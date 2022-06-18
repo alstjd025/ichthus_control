@@ -23,6 +23,7 @@
 /* User Header */
 #include "ichthus_msgs/msg/pid.hpp"
 #include "ichthus_msgs/msg/can.hpp"
+#include "ichthus_msgs/msg/common.hpp"
 
 #define DEGtoRAD(deg) ((deg) * (0.017453))
 #define RADtoDEG(rad) ((rad) / (0.017453))
@@ -80,10 +81,10 @@ class PIDController : public rclcpp::Node
   private:
     rclcpp::Publisher<ichthus_msgs::msg::Pid>::SharedPtr pid_thr_pub;
     rclcpp::Publisher<ichthus_msgs::msg::Pid>::SharedPtr pid_str_pub;
-    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_thr_sub;
-    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ref_str_sub;
-    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr spd_sub;
-    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr ang_sub;
+    rclcpp::Subscription<ichthus_msgs::msg::Common>::SharedPtr ref_str_sub;
+    rclcpp::Subscription<ichthus_msgs::msg::Common>::SharedPtr ref_thr_sub;
+    rclcpp::Subscription<ichthus_msgs::msg::Common>::SharedPtr spd_sub;
+    rclcpp::Subscription<ichthus_msgs::msg::Common>::SharedPtr ang_sub;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr e_stop_sub;
 
@@ -159,10 +160,10 @@ class PIDController : public rclcpp::Node
       param_CB(const std::vector<rclcpp::Parameter> &);
 
     void init_Param();
-    void pid_thr_CB(const std_msgs::msg::Float64::SharedPtr);
-    void pid_str_CB(const std_msgs::msg::Float64::SharedPtr);
-    void spd_CB(const std_msgs::msg::Float64::SharedPtr);
-    void ang_CB(const std_msgs::msg::Float64::SharedPtr);
+    void pid_thr_CB(const ichthus_msgs::msg::Common::SharedPtr);
+    void pid_str_CB(const ichthus_msgs::msg::Common::SharedPtr);
+    void spd_CB(const ichthus_msgs::msg::Common::SharedPtr);
+    void ang_CB(const ichthus_msgs::msg::Common::SharedPtr);
     void e_stop_CB(const std_msgs::msg::Bool::SharedPtr);
     void imu_CB(const sensor_msgs::msg::Imu::SharedPtr);
     void throttle_pid(float);

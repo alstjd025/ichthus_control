@@ -17,14 +17,14 @@ PIDController::PIDController(const rclcpp::NodeOptions & options)
   pid_thr_pub = this->create_publisher<ichthus_msgs::msg::Pid>("pid_vel", 1);
   pid_str_pub = this->create_publisher<ichthus_msgs::msg::Pid>("pid_ang", 1);
 
-  ref_thr_sub = this->create_subscription<std_msgs::msg::Float64>(
+  ref_thr_sub = this->create_subscription<ichthus_msgs::msg::Common>(
     "ref_vel", 10, std::bind(&PIDController::pid_thr_CB, this, std::placeholders::_1));
-  ref_str_sub = this->create_subscription<std_msgs::msg::Float64>(
+  ref_str_sub = this->create_subscription<ichthus_msgs::msg::Common>(
     "ref_ang", 10, std::bind(&PIDController::pid_str_CB, this, std::placeholders::_1));
 
-  spd_sub = this->create_subscription<std_msgs::msg::Float64>(
+  spd_sub = this->create_subscription<ichthus_msgs::msg::Common>(
     "cur_vel", 10, std::bind(&PIDController::spd_CB, this, std::placeholders::_1));
-  ang_sub = this->create_subscription<std_msgs::msg::Float64>(
+  ang_sub = this->create_subscription<ichthus_msgs::msg::Common>(
     "cur_ang", 10, std::bind(&PIDController::ang_CB, this, std::placeholders::_1));
 
   extern_sub = this->create_subscription<std_msgs::msg::Int32>(
@@ -202,19 +202,19 @@ float PIDController::applySlopeCompensation(float output_before_comp)
   return output_before_comp + output_before_comp * sin(cur_slope * IMU_ERROR);
 }
 
-void PIDController::pid_thr_CB(const std_msgs::msg::Float64::SharedPtr msg)
+void PIDController::pid_thr_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 {
   ref_vel = msg->data;
   //RCLCPP_INFO(this->get_logger(), "Ref_Vel : %f", msg->data);
 }
 
-void PIDController::pid_str_CB(const std_msgs::msg::Float64::SharedPtr msg)
+void PIDController::pid_str_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 {
   ref_ang = -msg->data;
   //RCLCPP_INFO(this->get_logger(), "Ref_Ang : %f", msg->data);
 }
 
-void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
+void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 {
   if (state == pid_state::PID_OFF) {
     return;
@@ -311,7 +311,7 @@ void PIDController::spd_CB(const std_msgs::msg::Float64::SharedPtr msg)
   }
 }
 
-void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
+void PIDController::ang_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 {
   if (state == pid_state::PID_OFF) {
     return;
@@ -325,6 +325,7 @@ void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
     float err = 0;
     float threshold = 0;
     
+    cur_ang = msg->data; 
     cur_ang = -cur_ang;
 
     err = ref_ang - cur_ang;
@@ -333,7 +334,6 @@ void PIDController::ang_CB(const std_msgs::msg::Float64::SharedPtr msg)
     if(err > 0){        //Steer Clockwise
       if(cur_ang >= 0) {
         threshold = thres_table(cur_ang);
-        cur_ang = msg->data; 
         actuation_sas += threshold;
       } 
       else 
