@@ -73,6 +73,9 @@ void PIDController::init_Param()
   str_Ki = this->declare_parameter("str_ki", (float)0.0);
   str_Kd = this->declare_parameter("str_kd", (float)0.0);
 
+  weight_str_Kp = this->declare_parameter("weight_str_kp", (float)0.1);
+  base_str_Kp = this->declare_parameter("base_str_kp", (float)1.0);
+
   max_output_vel = this->declare_parameter("max_vel", (float)0.3);
   max_output_brk = this->declare_parameter("max_brk", (float)0.65);
   max_output_str = this->declare_parameter("max_str", (float)0.35);
@@ -94,6 +97,9 @@ void PIDController::init_Param()
   str_Ki = this->get_parameter("str_ki").as_double() / PID_CONSTANT;
   str_Kd = this->get_parameter("str_kd").as_double() / PID_CONSTANT;
 
+  weight_str_Kp = this->get_parameter("weight_str_kp").as_double();
+  base_str_Kp = this->get_parameter("base_str_kp").as_double();
+
   max_output_vel = this->get_parameter("max_vel").as_double() / PID_CONSTANT;
   max_output_brk = this->get_parameter("max_brk").as_double() / PID_CONSTANT;
   max_output_str = this->get_parameter("max_str").as_double() / PID_CONSTANT;
@@ -107,6 +113,8 @@ void PIDController::init_Param()
   stop_dt = hz * comfort_time;
   brk_stop_dt = 0;
   start_stopping = true;
+
+	velocity_last = 0;
 }
 
 rcl_interfaces::msg::SetParametersResult
@@ -216,6 +224,8 @@ void PIDController::pid_str_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 
 void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 {
+	velocity_last = msg->data;
+
   if (state == pid_state::PID_OFF) {
     return;
   }
@@ -439,14 +449,15 @@ void PIDController::brake_pid(float err)
 void PIDController::steer_pid(float err)
 {
   float ang_err = err; 
-  float p_term = str_Kp * ang_err;
+  float p_term; 
   //float i_term = str_Ki * str_integral;
   float d_term = 0;
-
-  d_term = str_Kd * (ang_err - str_error_last);
+	
+	/* Note: The K_p term is proportional to the current velocity */
+	p_term = str_Kp * (base_str_Kp + weight_str_Kp*velocity_last) * ang_err;
+	d_term = str_Kd * (ang_err - str_error_last);
 
   str_error_last = ang_err;
-
 
   actuation_sas = p_term + d_term;
 
