@@ -80,6 +80,9 @@ void PIDController::init_Param()
   max_output_brk = this->declare_parameter("max_brk", (float)0.65);
   max_output_str = this->declare_parameter("max_str", (float)0.35);
 
+  imu_error = this->declare_parameter("imu_error", (float)0.11);
+  slope_x_coeff = this->declare_parameter("slope_x_coeff", (float)-0.06);
+
   right_thres = this->declare_parameter("right_thres", (float)0.11);
   left_thres = this->declare_parameter("left_thres", (float)-0.06);
 
@@ -96,6 +99,9 @@ void PIDController::init_Param()
   str_Kp = this->get_parameter("str_kp").as_double() / PID_CONSTANT;
   str_Ki = this->get_parameter("str_ki").as_double() / PID_CONSTANT;
   str_Kd = this->get_parameter("str_kd").as_double() / PID_CONSTANT;
+
+  imu_error = this->get_parameter("imu_error").as_double();
+  slope_x_coeff = this->get_parameter("slope_x_coeff").as_double();
 
   weight_str_Kp = this->get_parameter("weight_str_kp").as_double();
   base_str_Kp = this->get_parameter("base_str_kp").as_double();
@@ -185,6 +191,41 @@ PIDController::param_CB(const std::vector<rclcpp::Parameter> & params)
       str_Kd = param.as_double();
       RCLCPP_INFO(this->get_logger(), "[PARAM] Change str_Kd : %lf", str_Kd);
     }
+    else if (param.get_name() =="weight_str_kp")
+    {
+      weight_str_Kp = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change weight_str_kp : %lf", weight_str_Kp);
+    }
+    else if (param.get_name() =="base_str_kp")
+    {
+      base_str_Kp = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change base_str_kp : %lf", base_str_Kp);
+    }
+    else if (param.get_name() =="right_thres")
+    {
+      right_thres = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change right_thres : %lf", right_thres);
+    }
+    else if (param.get_name() =="left_thres")
+    {
+      left_thres = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change left_thres : %lf", left_thres);
+    }
+    else if (param.get_name() =="comfort_time")
+    {
+      comfort_time = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change comfort_time : %lf", comfort_time);
+    }
+    else if (param.get_name() =="imu_error")
+    {
+      imu_error = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change imu_error : %lf", imu_error);
+    }
+    else if (param.get_name() =="slope_x_coeff")
+    {
+      slope_x_coeff = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change slope_x_coeff : %lf", slope_x_coeff);
+    }
   }
   return result;
 }
@@ -207,7 +248,7 @@ void PIDController::imu_CB(const sensor_msgs::msg::Imu::SharedPtr msg)
 
 float PIDController::applySlopeCompensation(float output_before_comp)
 {
-  return output_before_comp + output_before_comp * sin(cur_slope * IMU_ERROR);
+  return output_before_comp + output_before_comp * sin(cur_slope * imu_error);
 }
 
 void PIDController::pid_thr_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
@@ -527,10 +568,10 @@ void PIDController::e_stop_CB(const std_msgs::msg::Bool::SharedPtr msg)
 float PIDController::thres_table(float ang) {
   float thres = 0;
   if (ang >= 0) {
-    thres = ang / X_SLOPE + right_thres;
+    thres = ang / slope_x_coeff + right_thres;
   }
   else if (ang < 0) {
-    thres = ang / X_SLOPE + left_thres;
+    thres = ang / slope_x_coeff + left_thres;
   }
   return thres;
 }

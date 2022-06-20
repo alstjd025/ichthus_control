@@ -35,9 +35,9 @@
 #define MAX_STR_WIN_SIZE 50 /* iterm window maximam size */
 #define PID_CONSTANT 10000 /*Will devide the loaded parameters*/
 #define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
-#define X_SLOPE 11250
+// #define X_SLOPE 11250
 //#define X_SLOPE 1000000
-#define IMU_ERROR 2 /**/
+// #define IMU_ERROR 2 /**/
 
 /*속도 변화량에 따라 케이스를 나눌것.(idea update)
   delta_vel<=10km/h margin 1
@@ -142,6 +142,9 @@ class PIDController : public rclcpp::Node
     float max_output_brk; 
     float max_output_str;
     float max_rate;
+
+    float slope_x_coeff;
+    float imu_error;
 
     float right_thres;
     float left_thres;
