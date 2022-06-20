@@ -35,8 +35,8 @@
 #define MAX_STR_WIN_SIZE 50 /* iterm window maximam size */
 #define PID_CONSTANT 10000 /*Will devide the loaded parameters*/
 #define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
-// #define X_SLOPE 11250
-#define X_SLOPE 1000000
+#define X_SLOPE 11250
+//#define X_SLOPE 1000000
 #define IMU_ERROR 2 /**/
 
 /*속도 변화량에 따라 케이스를 나눌것.(idea update)
