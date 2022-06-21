@@ -36,6 +36,8 @@
 #define PID_CONSTANT 10000 /*Will devide the loaded parameters*/
 #define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
 
+
+
 #define DEBUG
 
 // #define X_SLOPE 11250
@@ -147,6 +149,8 @@ class PIDController : public rclcpp::Node
 		float cur_angle_weight;	/* STR_Kp weight per velocity (Note: Kp(1.0+WK_p*vel)) */
 		float cur_vel_weight;
     float str_max_weight;
+    float str_minimum_thrs_buffer; /* Buffer for Steer PID minimum threshold (deg) */
+
 		float velocity_last;
 
 

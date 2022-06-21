@@ -103,6 +103,7 @@ void PIDController::init_Param()
   left_thres = this->declare_parameter("left_thres", (float)-0.06);
 
   comfort_time = this->declare_parameter("comfort_time", (float)1.5);
+  str_minimum_thrs_buffer = this->declare_parameter("str_minimum_thrs_buffer", (float)1.0);
 
   thr_Kp = this->get_parameter("thr_kp").as_double() / PID_CONSTANT;
   thr_Ki = this->get_parameter("thr_ki").as_double() / PID_CONSTANT;
@@ -131,6 +132,8 @@ void PIDController::init_Param()
   left_thres = this->get_parameter("left_thres").as_double();
 
   comfort_time = this->get_parameter("comfort_time").as_double();
+
+  str_minimum_thrs_buffer = this->get_parameter("str_minimum_thrs_buffer").as_double();
 
 
   hz = 100;
@@ -248,6 +251,11 @@ PIDController::param_CB(const std::vector<rclcpp::Parameter> & params)
     {
       str_max_weight = param.as_double();
       RCLCPP_INFO(this->get_logger(), "[PARAM] Change str_max_weight : %lf", str_max_weight);
+    }
+    else if (param.get_name() =="str_minimum_thrs_buffer")
+    {
+      str_max_weight = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change str_minimum_thrs_buffer : %lf", str_minimum_thrs_buffer);
     }
   }
   return result;
@@ -510,9 +518,9 @@ void PIDController::steer_pid(float err)
 
   str_error_last = err;
 
-	if (err > 0)
+	if (err > str_minimum_thrs_buffer)  /* Want steer clockwise */
   	actuation_sas += right_thres;
-	else if (err < 0)
+	else if (err < -str_minimum_thrs_buffer)  /* Want steer counter-clockwise */
   	actuation_sas += left_thres;
 
   max_output_str = max_output_str + sign*cur_ang*str_max_weight;
@@ -522,11 +530,11 @@ void PIDController::steer_pid(float err)
   #ifdef DEBUG
     ichthus_msgs::msg::Common debug_p_msg;
     debug_p_msg.header.stamp = this->now();
-    debug_p_msg.data = p_term;
+    debug_p_msg.data = P;
     DEBUG_pub_str_p_term->publish(debug_p_msg);
     ichthus_msgs::msg::Common debug_d_msg;
     debug_d_msg.header.stamp = this->now();
-    debug_d_msg.data = d_term;
+    debug_d_msg.data = D;
     DEBUG_pub_str_d_term->publish(debug_d_msg);
     //ichthus_msgs::msg::Common debug_i_msg;
     //debug_i_msg.header.stamp = this->now();

@@ -18,6 +18,8 @@ devel_isolated/
 *.log
 *log/
 
+#!!IMPORTANT!! PID YAML
+pid.yaml
 
 
 # Ignore generated docs
