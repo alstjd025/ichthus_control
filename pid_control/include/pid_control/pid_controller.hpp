@@ -35,6 +35,9 @@
 #define MAX_STR_WIN_SIZE 50 /* iterm window maximam size */
 #define PID_CONSTANT 10000 /*Will devide the loaded parameters*/
 #define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
+
+#define DEBUG
+
 // #define X_SLOPE 11250
 //#define X_SLOPE 1000000
 // #define IMU_ERROR 2 /**/
@@ -81,6 +84,15 @@ class PIDController : public rclcpp::Node
   private:
     rclcpp::Publisher<ichthus_msgs::msg::Pid>::SharedPtr pid_thr_pub;
     rclcpp::Publisher<ichthus_msgs::msg::Pid>::SharedPtr pid_str_pub;
+    
+
+    #ifdef DEBUG     
+      rclcpp::Publisher<ichthus_msgs::msg::Common>::SharedPtr DEBUG_pub_str_p_term;
+      rclcpp::Publisher<ichthus_msgs::msg::Common>::SharedPtr DEBUG_pub_str_d_term;
+      rclcpp::Publisher<ichthus_msgs::msg::Common>::SharedPtr DEBUG_pub_str_i_term;
+      rclcpp::Publisher<ichthus_msgs::msg::Common>::SharedPtr DEBUG_pub_str_minimum_term;
+    #endif // DEBUG
+
     rclcpp::Subscription<ichthus_msgs::msg::Common>::SharedPtr ref_str_sub;
     rclcpp::Subscription<ichthus_msgs::msg::Common>::SharedPtr ref_thr_sub;
     rclcpp::Subscription<ichthus_msgs::msg::Common>::SharedPtr spd_sub;

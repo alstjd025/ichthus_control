@@ -1,5 +1,7 @@
 #include "pid_control/pid_controller.hpp"
 
+
+
 namespace ichthus
 {
 
@@ -16,6 +18,19 @@ PIDController::PIDController(const rclcpp::NodeOptions & options)
 
   pid_thr_pub = this->create_publisher<ichthus_msgs::msg::Pid>("pid_vel", 1);
   pid_str_pub = this->create_publisher<ichthus_msgs::msg::Pid>("pid_ang", 1);
+
+  #ifdef DEBUG
+    DEBUG_pub_str_p_term = this->create_publisher<ichthus_msgs::msg::Common>\
+                          ("pid_debug_str_p", 1);
+    DEBUG_pub_str_i_term = this->create_publisher<ichthus_msgs::msg::Common>\
+                          ("pid_debug_str_d", 1);
+    DEBUG_pub_str_d_term = this->create_publisher<ichthus_msgs::msg::Common>\
+                          ("pid_debug_str_i", 1);
+    DEBUG_pub_str_minimum_term = this->create_publisher<ichthus_msgs::msg::Common>\
+                          ("pid_debug_str_minimum", 1);
+  #endif
+
+
 
   ref_thr_sub = this->create_subscription<ichthus_msgs::msg::Common>(
     "ref_vel", 10, std::bind(&PIDController::pid_thr_CB, this, std::placeholders::_1));
@@ -372,6 +387,8 @@ void PIDController::ang_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
   }
   else if (state == pid_state::PID_ON) {
     ichthus_msgs::msg::Pid data;
+
+
     float cur_ang = 0;
     float err = 0;
     float threshold = 0;
@@ -409,6 +426,14 @@ void PIDController::ang_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
     data.data = actuation_sas;
     data.frame_id = "Steer";
     pid_str_pub->publish(data);
+
+    #ifdef DEBUG
+      ichthus_msgs::msg::Common debug_minimum_msg;
+      debug_minimum_msg.header.stamp = this->now();
+      debug_minimum_msg.data = threshold;
+      DEBUG_pub_str_minimum_term->publish(debug_minimum_msg);
+    #endif // DEBUG
+
     //RCLCPP_INFO(this->get_logger(), "error : %f", err);
     //RCLCPP_INFO(this->get_logger(), "thres : %f", threshold);
     //RCLCPP_INFO(this->get_logger(), "angle : %f", cur_ang);
@@ -512,6 +537,20 @@ void PIDController::steer_pid(float err)
       actuation_sas = -max_output_str;
     }
   }
+  #ifdef DEBUG
+    ichthus_msgs::msg::Common debug_p_msg;
+    debug_p_msg.header.stamp = this->now();
+    debug_p_msg.data = p_term;
+    DEBUG_pub_str_p_term->publish(debug_p_msg);
+    ichthus_msgs::msg::Common debug_d_msg;
+    debug_d_msg.header.stamp = this->now();
+    debug_d_msg.data = d_term;
+    DEBUG_pub_str_d_term->publish(debug_d_msg);
+    //ichthus_msgs::msg::Common debug_i_msg;
+    //debug_i_msg.header.stamp = this->now();
+    //debug_i_msg.data = p_term;
+    //DEBUG_pub_str_i_term->publish(debug_i_msg);
+  #endif // DEBUG
   /*
   str_iterm_Lock.lock();
   if(str_iterm_window.size() < MAX_STR_WIN_SIZE){
