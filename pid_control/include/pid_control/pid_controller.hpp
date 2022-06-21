@@ -118,6 +118,10 @@ class PIDController : public rclcpp::Node
     float actuation_thr_after_slope;
     float actuation_brk_after_slope;
 
+    // Current Angle, Velocity
+    float cur_ang;
+    float cur_vel;
+
     float output_vel;
     float output_ang;
     float ref_vel;
@@ -140,9 +144,12 @@ class PIDController : public rclcpp::Node
     float thr_velocity_error_last;
     float thr_integral;
 
-		float weight_str_Kp;	/* STR_Kp weight per velocity (Note: Kp(1.0+WK_p*vel)) */
-		float base_str_Kp;
+		float cur_angle_weight;	/* STR_Kp weight per velocity (Note: Kp(1.0+WK_p*vel)) */
+		float cur_vel_weight;
+    float str_max_weight;
 		float velocity_last;
+
+
 
     float brk_velocity_error_last;
     float brk_integral;

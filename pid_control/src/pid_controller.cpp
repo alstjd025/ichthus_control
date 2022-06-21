@@ -88,8 +88,9 @@ void PIDController::init_Param()
   str_Ki = this->declare_parameter("str_ki", (float)0.0);
   str_Kd = this->declare_parameter("str_kd", (float)0.0);
 
-  weight_str_Kp = this->declare_parameter("weight_str_kp", (float)0.1);
-  base_str_Kp = this->declare_parameter("base_str_kp", (float)1.0);
+  cur_angle_weight = this->declare_parameter("cur_angle_weight", (float)0.1);
+  cur_vel_weight = this->declare_parameter("cur_vel_weight", (float)1.0);
+  str_max_weight = this->declare_parameter("str_max_weight", (float)0.0);
 
   max_output_vel = this->declare_parameter("max_vel", (float)0.3);
   max_output_brk = this->declare_parameter("max_brk", (float)0.65);
@@ -118,8 +119,9 @@ void PIDController::init_Param()
   imu_error = this->get_parameter("imu_error").as_double();
   slope_x_coeff = this->get_parameter("slope_x_coeff").as_double();
 
-  weight_str_Kp = this->get_parameter("weight_str_kp").as_double();
-  base_str_Kp = this->get_parameter("base_str_kp").as_double();
+  cur_angle_weight = this->get_parameter("cur_angle_weight").as_double();
+  cur_vel_weight = this->get_parameter("cur_vel_weight").as_double();
+  str_max_weight = this->get_parameter("str_max_weight").as_double();
 
   max_output_vel = this->get_parameter("max_vel").as_double() / PID_CONSTANT;
   max_output_brk = this->get_parameter("max_brk").as_double() / PID_CONSTANT;
@@ -129,6 +131,7 @@ void PIDController::init_Param()
   left_thres = this->get_parameter("left_thres").as_double();
 
   comfort_time = this->get_parameter("comfort_time").as_double();
+
 
   hz = 100;
   stop_dt = hz * comfort_time;
@@ -206,15 +209,15 @@ PIDController::param_CB(const std::vector<rclcpp::Parameter> & params)
       str_Kd = param.as_double();
       RCLCPP_INFO(this->get_logger(), "[PARAM] Change str_Kd : %lf", str_Kd);
     }
-    else if (param.get_name() =="weight_str_kp")
+    else if (param.get_name() =="cur_angle_weight")
     {
-      weight_str_Kp = param.as_double();
-      RCLCPP_INFO(this->get_logger(), "[PARAM] Change weight_str_kp : %lf", weight_str_Kp);
+      cur_angle_weight = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change cur_angle_weight : %lf", cur_angle_weight);
     }
-    else if (param.get_name() =="base_str_kp")
+    else if (param.get_name() =="cur_vel_weight")
     {
-      base_str_Kp = param.as_double();
-      RCLCPP_INFO(this->get_logger(), "[PARAM] Change base_str_kp : %lf", base_str_Kp);
+      cur_vel_weight = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change cur_vel_weight : %lf", cur_vel_weight);
     }
     else if (param.get_name() =="right_thres")
     {
@@ -240,6 +243,11 @@ PIDController::param_CB(const std::vector<rclcpp::Parameter> & params)
     {
       slope_x_coeff = param.as_double();
       RCLCPP_INFO(this->get_logger(), "[PARAM] Change slope_x_coeff : %lf", slope_x_coeff);
+    }
+    else if (param.get_name() =="str_max_weight")
+    {
+      str_max_weight = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change str_max_weight : %lf", str_max_weight);
     }
   }
   return result;
@@ -309,7 +317,6 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
     ichthus_msgs::msg::Pid acc_data;
     ichthus_msgs::msg::Pid brk_data;
     ichthus_msgs::msg::Pid str_data;
-    float cur_vel = 0;
     float vel_err = 0;
     float abs_vel_err = 0;
 
@@ -388,8 +395,6 @@ void PIDController::ang_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
   else if (state == pid_state::PID_ON) {
     ichthus_msgs::msg::Pid data;
 
-
-    float cur_ang = 0;
     float err = 0;
     float threshold = 0;
     
@@ -414,13 +419,6 @@ void PIDController::ang_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
       }
       else  
         actuation_sas += left_thres;
-    }
-
-    if(actuation_sas >= max_output_str){
-      actuation_sas = max_output_str;
-    }
-    else if(actuation_sas <= -max_output_str){
-      actuation_sas = -max_output_str;
     }
 
     data.data = actuation_sas;
@@ -519,9 +517,12 @@ void PIDController::steer_pid(float err)
   //float i_term = str_Ki * str_integral;
   float d_term = 0;
 	
-	/* Note: The K_p term is proportional to the current velocity */
-	p_term = str_Kp * (base_str_Kp + weight_str_Kp*velocity_last) * ang_err;
+	/* Note: The K_p term is affected by current velocity & angle */
+  p_term = str_Kp * ang_err + cur_vel * cur_vel_weight + cur_ang * cur_angle_weight;
 	d_term = str_Kd * (ang_err - str_error_last);
+
+  /* Note: The max output of steer pid is affected by current angle*/
+  max_output_str = max_output_str + cur_ang * str_max_weight;
 
   str_error_last = ang_err;
 
