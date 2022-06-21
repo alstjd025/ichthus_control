@@ -119,9 +119,9 @@ void PIDController::init_Param()
   imu_error = this->get_parameter("imu_error").as_double();
   slope_x_coeff = this->get_parameter("slope_x_coeff").as_double();
 
-  cur_angle_weight = this->get_parameter("cur_angle_weight").as_double();
-  cur_vel_weight = this->get_parameter("cur_vel_weight").as_double();
-  str_max_weight = this->get_parameter("str_max_weight").as_double();
+  cur_angle_weight = this->get_parameter("cur_angle_weight").as_double()  / PID_CONSTANT;
+  cur_vel_weight = this->get_parameter("cur_vel_weight").as_double()  / PID_CONSTANT;
+  str_max_weight = this->get_parameter("str_max_weight").as_double()  / PID_CONSTANT;
 
   max_output_vel = this->get_parameter("max_vel").as_double() / PID_CONSTANT;
   max_output_brk = this->get_parameter("max_brk").as_double() / PID_CONSTANT;
@@ -518,6 +518,8 @@ void PIDController::steer_pid(float err)
   float d_term = 0;
 	
 	/* Note: The K_p term is affected by current velocity & angle */
+  // cur_angle_weight -> 0.001 (10)
+  // cur_vel_weight -> 0.002 (20)
   p_term = str_Kp * ang_err + cur_vel * cur_vel_weight + cur_ang * cur_angle_weight;
 	d_term = str_Kd * (ang_err - str_error_last);
 
