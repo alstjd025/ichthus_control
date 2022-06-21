@@ -494,28 +494,29 @@ void PIDController::brake_pid(float err)
 
 void PIDController::steer_pid(float err)
 {
-	/* Note: The K_p term is affected by current velocity & angle */
-  /* Note: The max output of steer pid is affected by current angle*/
-	float P, D, I, V, theta;   
-	/* direction of the steer error (+: right, -: left) */
+  /* TODO: The max output of steer pid is affected by current angle*/
+	float P, D, I;   
+	float theta, V;
+	/* sign: direction of the steer error (+: right, -: left) */
 	float sign;
 
 	sign = err >= 0.0 ? 1.0 : -1.0;
 
-	/* Note: the theta term: when the direction of the steer error and current steer angle 
-	 * have the same direction (i.e., ++ or --)
+	/* Note: the theta term: 
+		 Put additional torque (in Kp),
+		 when the direction of the steer error and current steer angle 
+	   have the same direction (i.e., ++ or --). It must be positive.
+		 Note: the V term:
+		 Put additional torque (in Kp) according to the current velocity (should be positive)
 	 */
-	P = str_Kp * err;
+	theta = sign * cur_ang > 0.0 ? sign * cur_ang * cur_angle_weight : 0;
+	V = cur_vel_weight*cur_vel;
+
+	P = err * (str_Kp + V + theta);
 	I = 0.0;	/* temporaly disable */
 	D = str_Kd * (err - str_error_last);
-	V = cur_vel * cur_vel_weight * sign;
-	theta = sign * cur_ang >= 0.0 ? cur_ang * cur_angle_weight : 0;
 
-	if (err == 0.0)
-  	actuation_sas = P + I + D; 
-	else 
-  	actuation_sas = P + I + D + V + theta; 
-
+  actuation_sas = P + I + D; 
   str_error_last = err;
 
 	if (err > str_minimum_thrs_buffer)  /* Want steer clockwise */
