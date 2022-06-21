@@ -505,24 +505,26 @@ void PIDController::steer_pid(float err)
 	/* Note: the theta term: 
 		 Put additional torque (in Kp),
 		 when the direction of the steer error and current steer angle 
-	   have the same direction (i.e., ++ or --). It must be positive.
+	   have the same direction (i.e., ++ or --). 
 		 Note: the V term:
 		 Put additional torque (in Kp) according to the current velocity (should be positive)
 	 */
-	theta = sign * cur_ang > 0.0 ? sign * cur_ang * cur_angle_weight : 0;
+	//theta = sign * cur_ang > 0.0 ? cur_ang * cur_angle_weight : 0;
+  theta = cur_ang * cur_angle_weight;
 	V = cur_vel_weight*cur_vel;
 
-	P = err * (str_Kp + V + theta);
+	P = err * (str_Kp + V);
 	I = 0.0;	/* temporaly disable */
 	D = str_Kd * (err - str_error_last);
 
   actuation_sas = P + I + D; 
+  actuation_sas += theta;
   str_error_last = err;
 
 	if (err > str_minimum_thrs_buffer)  /* Want steer clockwise */
-  	actuation_sas += right_thres;
+  	actuation_sas += (right_thres);
 	else if (err < -str_minimum_thrs_buffer)  /* Want steer counter-clockwise */
-  	actuation_sas += left_thres;
+  	actuation_sas += (left_thres);
 
   max_output_str = max_output_str + sign*cur_ang*str_max_weight;
 	if (actuation_sas * sign > max_output_str)
@@ -556,6 +558,8 @@ void PIDController::steer_pid(float err)
   }
   str_iterm_Lock.unlock();
   */
+  RCLCPP_INFO(this->get_logger(), "===\nV_term : %f", V);
+  RCLCPP_INFO(this->get_logger(), "T_term : %f\n===", theta);
 }
 
 void PIDController::extern_CB(const std_msgs::msg::Int32::SharedPtr msg)

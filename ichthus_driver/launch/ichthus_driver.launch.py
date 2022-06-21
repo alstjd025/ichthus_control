@@ -38,13 +38,19 @@ def generate_launch_description():
             executable = 'pid_node',
             parameters = [pid_cfg,
             {
-                'str_kp': 150.0,
+                'str_kp': 30.0,
                 'str_ki' : 0.0,
                 'str_kd' : 0.0,
                 # 'str_kp': 20.0, # 75.0. 125.0,
                 # 'str_kd' : 10.0,
-                'right_thres' : 0.055,
-                'left_thres' : -0.025 
+                'cur_angle_weight': 7.5,
+                'cur_vel_weight': 2.0,
+                'max_str': 3000.0,
+                'str_max_weight': 0.0,
+                # 'right_thres' : 0.055,
+                # 'left_thres' : -0.025
+                'right_thres' : 0.0,
+                'left_thres' : 0.0 
             }],
             output="screen",
         )
