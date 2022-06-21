@@ -396,41 +396,15 @@ void PIDController::ang_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
     ichthus_msgs::msg::Pid data;
 
     float err = 0;
-    float threshold = 0;
     
-    cur_ang = msg->data; 
-    cur_ang = -cur_ang;
+    cur_ang = -(msg->data);
 
     err = ref_ang - cur_ang;
     steer_pid(err);
 
-    if(err > 0){        //Steer Clockwise
-      if(cur_ang >= 0) {
-        threshold = thres_table(cur_ang);
-        actuation_sas += threshold;
-      } 
-      else 
-        actuation_sas += right_thres;
-    }
-    else if(err < 0){  //Steer Counter-Clockwise
-      if(cur_ang < 0) {
-        threshold = thres_table(cur_ang);
-        actuation_sas += threshold;
-      }
-      else  
-        actuation_sas += left_thres;
-    }
-
     data.data = actuation_sas;
     data.frame_id = "Steer";
     pid_str_pub->publish(data);
-
-    #ifdef DEBUG
-      ichthus_msgs::msg::Common debug_minimum_msg;
-      debug_minimum_msg.header.stamp = this->now();
-      debug_minimum_msg.data = threshold;
-      DEBUG_pub_str_minimum_term->publish(debug_minimum_msg);
-    #endif // DEBUG
 
     //RCLCPP_INFO(this->get_logger(), "error : %f", err);
     //RCLCPP_INFO(this->get_logger(), "thres : %f", threshold);
@@ -512,34 +486,39 @@ void PIDController::brake_pid(float err)
 
 void PIDController::steer_pid(float err)
 {
-  float ang_err = err; 
-  float p_term; 
-  //float i_term = str_Ki * str_integral;
-  float d_term = 0;
-	
 	/* Note: The K_p term is affected by current velocity & angle */
-  // cur_angle_weight -> 0.001 (10)
-  // cur_vel_weight -> 0.002 (20)
-  p_term = str_Kp * ang_err + cur_vel * cur_vel_weight + cur_ang * cur_angle_weight;
-	d_term = str_Kd * (ang_err - str_error_last);
-
   /* Note: The max output of steer pid is affected by current angle*/
-  max_output_str = max_output_str + cur_ang * str_max_weight;
+	float P, D, I, V, theta;   
+	/* direction of the steer error (+: right, -: left) */
+	float sign;
 
-  str_error_last = ang_err;
+	sign = err >= 0.0 ? 1.0 : -1.0;
 
-  actuation_sas = p_term + d_term;
+	/* Note: the theta term: when the direction of the steer error and current steer angle 
+	 * have the same direction (i.e., ++ or --)
+	 */
+	P = str_Kp * err;
+	I = 0.0;	/* temporaly disable */
+	D = str_Kd * (err - str_error_last);
+	V = cur_vel * cur_vel_weight * sign;
+	theta = sign * cur_ang >= 0.0 ? cur_ang * cur_angle_weight : 0;
 
-  if (ang_err > 0) {
-    if(actuation_sas >= max_output_str){
-      actuation_sas = max_output_str;
-    }
-  }
-  else if (ang_err < 0){
-    if(actuation_sas <= -max_output_str){
-      actuation_sas = -max_output_str;
-    }
-  }
+	if (err == 0.0)
+  	actuation_sas = P + I + D; 
+	else 
+  	actuation_sas = P + I + D + V + theta; 
+
+  str_error_last = err;
+
+	if (err > 0)
+  	actuation_sas += right_thres;
+	else if (err < 0)
+  	actuation_sas += left_thres;
+
+  max_output_str = max_output_str + sign*cur_ang*str_max_weight;
+	if (actuation_sas * sign > max_output_str)
+		actuation_sas = max_output_str * sign;
+
   #ifdef DEBUG
     ichthus_msgs::msg::Common debug_p_msg;
     debug_p_msg.header.stamp = this->now();
