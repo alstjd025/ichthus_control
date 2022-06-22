@@ -358,14 +358,16 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
         brk_data.data = actuation_brk;
         brk_data.frame_id = "Brake";  
         pid_thr_pub->publish(brk_data);  
+        return;
       #endif // SMOOTH_BRK_PEDAL
       #ifndef SMOOTH_BRK_PEDAL /* Note : Set ref vel -5 when ref_vel < 0.03 km/h
                                         for brake pid */
         ref_vel = -5;
+        vel_err = ref_vel - cur_vel;
       #endif
-
     }
-    else if(ref_vel == -1){
+
+    if(ref_vel == -1){
       acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
       acc_data.frame_id = "Throttle";    
       pid_thr_pub->publish(acc_data);
