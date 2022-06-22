@@ -537,7 +537,7 @@ void PIDController::steer_pid(float err)
     DEBUG_pub_str_p_term->publish(debug_p_msg);
     ichthus_msgs::msg::Common debug_d_msg;
     debug_d_msg.header.stamp = this->now();
-    debug_d_msg.data = D;
+    debug_d_msg.data = theta;
     DEBUG_pub_str_d_term->publish(debug_d_msg);
     //ichthus_msgs::msg::Common debug_i_msg;
     //debug_i_msg.header.stamp = this->now();

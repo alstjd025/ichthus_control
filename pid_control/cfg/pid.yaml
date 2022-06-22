@@ -16,6 +16,7 @@
     left_thres: -0.02
     comfort_time: 1.5
     weight_str_kp: 0.03
+    str_minimum_thrs_buffer: 1.0
     base_str_kp: 150.0
     imu_error: 2.0
     slope_x_coeff: 11250.0
