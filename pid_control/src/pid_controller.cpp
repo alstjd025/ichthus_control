@@ -362,7 +362,7 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
       #endif // SMOOTH_BRK_PEDAL
       #ifndef SMOOTH_BRK_PEDAL /* Note : Set ref vel -5 when ref_vel < 0.03 km/h
                                         for brake pid */
-        ref_vel = -5;
+        ref_vel = -1;
         vel_err = ref_vel - cur_vel;
       #endif
     }
@@ -521,7 +521,7 @@ void PIDController::steer_pid(float err)
 	 */
 	//theta = sign * cur_ang > 0.0 ? cur_ang * cur_angle_weight : 0;
   theta = cur_ang * cur_angle_weight;
-	V = cur_vel_weight*cur_vel;
+	V = cur_vel_weight*cur_vel*cur_vel;
 
 	P = err * (str_Kp + V);
   #ifdef USE_STR_ITERM

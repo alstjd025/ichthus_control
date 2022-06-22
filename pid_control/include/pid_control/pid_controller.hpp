@@ -32,7 +32,7 @@
 #define RT_STR_MIN_TH 0.09 //It's Right - 0.01
 #define NO_SIGNAL 0 /* For input 0 signal in Data*/
 #define MAX_WIN_SIZE 20 /* iterm window maximam size */
-#define MAX_STR_WIN_SIZE 3 /* iterm window maximam size */
+#define MAX_STR_WIN_SIZE 10 /* iterm window maximam size */
 #define PID_CONSTANT 10000 /*Will devide the loaded parameters*/
 #define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
 
