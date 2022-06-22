@@ -32,28 +32,16 @@
 #define RT_STR_MIN_TH 0.09 //It's Right - 0.01
 #define NO_SIGNAL 0 /* For input 0 signal in Data*/
 #define MAX_WIN_SIZE 20 /* iterm window maximam size */
-#define MAX_STR_WIN_SIZE 50 /* iterm window maximam size */
+#define MAX_STR_WIN_SIZE 3 /* iterm window maximam size */
 #define PID_CONSTANT 10000 /*Will devide the loaded parameters*/
 #define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
 
 
 
 #define DEBUG
+#define SMOOTH_BRK_PEDAL
+#define USE_STR_ITERM
 
-// #define X_SLOPE 11250
-//#define X_SLOPE 1000000
-// #define IMU_ERROR 2 /**/
-
-/*속도 변화량에 따라 케이스를 나눌것.(idea update)
-  delta_vel<=10km/h margin 1
-  delta_vel<=20km/h margin 2
-  delta_vel<=30km/h margin 3
-  delta_vel<=40km/h margin 4
-  delta_vel<=50km/h margin 5
-  delta_vel<=60km/h margin 6
-  delta_vel<=70km/h margin 7
-  /imu/data
-*/
 enum margin_table{
   CASE_A = 1,
   CASE_B,
@@ -111,6 +99,7 @@ class PIDController : public rclcpp::Node
 
     std::deque<float> thr_iterm_window; // 5 seconds error will accumulated
     std::deque<float> brk_iterm_window; 
+    std::deque<float> str_iterm_window;
     //std::deque<float> str_iterm_window; 
 
     float actuation_thr;
@@ -150,6 +139,7 @@ class PIDController : public rclcpp::Node
 		float cur_vel_weight;
     float str_max_weight;
     float str_minimum_thrs_buffer; /* Buffer for Steer PID minimum threshold (deg) */
+    float str_integral;
 
 		float velocity_last;
 

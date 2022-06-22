@@ -23,9 +23,9 @@ PIDController::PIDController(const rclcpp::NodeOptions & options)
     DEBUG_pub_str_p_term = this->create_publisher<ichthus_msgs::msg::Common>\
                           ("pid_debug_str_p", 1);
     DEBUG_pub_str_i_term = this->create_publisher<ichthus_msgs::msg::Common>\
-                          ("pid_debug_str_d", 1);
-    DEBUG_pub_str_d_term = this->create_publisher<ichthus_msgs::msg::Common>\
                           ("pid_debug_str_i", 1);
+    DEBUG_pub_str_d_term = this->create_publisher<ichthus_msgs::msg::Common>\
+                          ("pid_debug_str_d", 1);
     DEBUG_pub_str_minimum_term = this->create_publisher<ichthus_msgs::msg::Common>\
                           ("pid_debug_str_minimum", 1);
   #endif
@@ -337,26 +337,33 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
     /* have to revise set calculate margin */
     int VEL_BUFFER = getMargine(vel_err, ref_vel);
     if(ref_vel < 0.03){
-      if (actuation_thr == NO_SIGNAL && start_stopping == true) {
-        brk_stop_dt = (max_output_brk - actuation_brk) / stop_dt;
-        start_stopping = false;
-      }
-      else if (actuation_brk == NO_SIGNAL && start_stopping == true) {
-        acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
-        acc_data.frame_id = "Throttle";    
-        pid_thr_pub->publish(acc_data);
-        brk_stop_dt = max_output_brk / stop_dt;
-        start_stopping = false;
-      }
+      #ifdef SMOOTH_BRK_PEDAL /* Note : Push brake pedal to maximum during 1.5s*/
+        if (actuation_thr == NO_SIGNAL && start_stopping == true) {
+          brk_stop_dt = (max_output_brk - actuation_brk) / stop_dt;
+          start_stopping = false;
+        }
+        else if (actuation_brk == NO_SIGNAL && start_stopping == true) {
+          acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
+          acc_data.frame_id = "Throttle";    
+          pid_thr_pub->publish(acc_data);
+          brk_stop_dt = max_output_brk / stop_dt;
+          start_stopping = false;
+        }
 
-      actuation_brk += brk_stop_dt;
-      if (actuation_brk > max_output_brk) {
-        actuation_brk = max_output_brk;
-      }
+        actuation_brk += brk_stop_dt;
+        if (actuation_brk > max_output_brk) {
+          actuation_brk = max_output_brk;
+        }
 
-      brk_data.data = actuation_brk;
-      brk_data.frame_id = "Brake";  
-      pid_thr_pub->publish(brk_data);
+        brk_data.data = actuation_brk;
+        brk_data.frame_id = "Brake";  
+        pid_thr_pub->publish(brk_data);  
+      #endif // SMOOTH_BRK_PEDAL
+      #ifndef SMOOTH_BRK_PEDAL /* Note : Set ref vel -5 when ref_vel < 0.03 km/h
+                                        for brake pid */
+        ref_vel = -5;
+      #endif
+
     }
     else if(ref_vel == -1){
       acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
@@ -458,12 +465,13 @@ void PIDController::throttle_pid(float err)
 
 void PIDController::brake_pid(float err)
 {
-  float brk_err = err; 
-  float p_term = br_Kp * brk_err;
-  float i_term = br_Ki * brk_integral;
-  float d_term = br_Kd * (brk_err - brk_velocity_error_last);
+  float brk_err = err;
+  float P, I, D; 
+  P = br_Kp * brk_err;
+  I = br_Ki * brk_integral;
+  D = br_Kd * (brk_err - brk_velocity_error_last);
 
-  actuation_brk = p_term + i_term + d_term;
+  actuation_brk = P + I + D;
  
   actuation_brk_after_slope = applySlopeCompensation(actuation_brk);
 
@@ -514,8 +522,10 @@ void PIDController::steer_pid(float err)
 	V = cur_vel_weight*cur_vel;
 
 	P = err * (str_Kp + V);
-	I = 0.0;	/* temporaly disable */
-	D = str_Kd * (err - str_error_last);
+  #ifdef USE_STR_ITERM
+	  I = str_integral * str_Ki;	/* temporaly disable */
+	#endif
+  D = str_Kd * (err - str_error_last);
 
   actuation_sas = P + I + D; 
   actuation_sas += theta;
@@ -539,25 +549,27 @@ void PIDController::steer_pid(float err)
     debug_d_msg.header.stamp = this->now();
     debug_d_msg.data = theta;
     DEBUG_pub_str_d_term->publish(debug_d_msg);
-    //ichthus_msgs::msg::Common debug_i_msg;
-    //debug_i_msg.header.stamp = this->now();
-    //debug_i_msg.data = p_term;
-    //DEBUG_pub_str_i_term->publish(debug_i_msg);
+    ichthus_msgs::msg::Common debug_i_msg;
+    debug_i_msg.header.stamp = this->now();
+    debug_i_msg.data = I;
+    DEBUG_pub_str_i_term->publish(debug_i_msg);
   #endif // DEBUG
-  /*
-  str_iterm_Lock.lock();
-  if(str_iterm_window.size() < MAX_STR_WIN_SIZE){
-    str_iterm_window.push_back(ang_err);
-    str_integral += ang_err;
-  }else{
-    float replaced = str_iterm_window.front();
-    str_iterm_window.pop_front();
-    str_iterm_window.push_back(ang_err);
-    str_integral -= replaced;
-    str_integral += ang_err;
-  }
-  str_iterm_Lock.unlock();
-  */
+  
+  #ifdef USE_STR_ITERM
+    str_iterm_Lock.lock();
+    if(str_iterm_window.size() < MAX_STR_WIN_SIZE){
+      str_iterm_window.push_back(err);
+      str_integral += err;
+    }else{
+      float replaced = str_iterm_window.front();
+      str_iterm_window.pop_front();
+      str_iterm_window.push_back(err);
+      str_integral -= replaced;
+      str_integral += err;
+    }
+    str_iterm_Lock.unlock();
+  #endif  
+  
   RCLCPP_INFO(this->get_logger(), "===\nV_term : %f", V);
   RCLCPP_INFO(this->get_logger(), "T_term : %f\n===", theta);
 }
