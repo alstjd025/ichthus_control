@@ -593,12 +593,10 @@ void PIDController::extern_CB(const std_msgs::msg::Int32::SharedPtr msg)
     brk_integral = 0;
     brk_iterm_window.clear();
     acc_iterm_Lock.unlock();
-    /*
     str_iterm_Lock.lock();
     str_integral = 0;
     str_iterm_window.clear();
     str_iterm_Lock.unlock();
-    */
   }
 }
 
