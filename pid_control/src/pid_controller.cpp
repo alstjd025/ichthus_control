@@ -74,7 +74,7 @@ void PIDController::init_Param()
   brk_integral = 0;
 
   str_error_last = 0;
-  //str_integral = 0;
+  str_integral = 0;
 
   thr_Kp = this->declare_parameter("thr_kp", (float)0.01);
   thr_Ki = this->declare_parameter("thr_ki", (float)0.0);
