@@ -39,7 +39,7 @@
 
 
 #define DEBUG
-#define SMOOTH_BRK_PEDAL
+//#define SMOOTH_BRK_PEDAL
 #define USE_STR_ITERM
 
 enum margin_table{
