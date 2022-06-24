@@ -335,7 +335,8 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 
     /* set margin wrttien in header */
     /* have to revise set calculate margin */
-    int VEL_BUFFER = getMargine(vel_err, ref_vel);
+    //int VEL_BUFFER = getMargine(vel_err, ref_vel);
+    int VEL_BUFFER = 1;
     if(ref_vel < 0.03){
       #ifdef SMOOTH_BRK_PEDAL /* Note : Push brake pedal to maximum during 1.5s*/
         if (actuation_thr == NO_SIGNAL && start_stopping == true) {
@@ -367,15 +368,7 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
       #endif
     }
 
-    if(ref_vel == -1){
-      acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
-      acc_data.frame_id = "Throttle";    
-      pid_thr_pub->publish(acc_data);
-      brk_data.data = 0.55;
-      brk_data.frame_id = "Brake";  
-      pid_thr_pub->publish(brk_data);
-    }
-    else if (vel_err < -VEL_BUFFER) //BRK
+    if (vel_err < -VEL_BUFFER) //BRK
     {
       acc_data.data = NO_SIGNAL;
       acc_data.frame_id = "Throttle";    
