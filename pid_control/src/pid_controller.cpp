@@ -279,7 +279,7 @@ void PIDController::imu_CB(const sensor_msgs::msg::Imu::SharedPtr msg)
 
 float PIDController::applySlopeCompensation(float output_before_comp)
 {
-  return output_before_comp + output_before_comp * sin(cur_slope * imu_error);
+  return output_before_comp + output_before_comp * sin(std::pow(cur_slope * (180.0 / M_PI), 2) * (M_PI / 180.0)) * imu_error ;
 }
 
 void PIDController::pid_thr_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
