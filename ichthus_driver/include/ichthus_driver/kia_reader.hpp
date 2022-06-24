@@ -23,7 +23,7 @@
 #include "dbcppp/CApi.h"
 #include "dbcppp/Network.h"
 
-#define PAYLOADSIZE 7 
+#define PAYLOADSIZE 10 
 
 namespace ichthus
 {
@@ -62,6 +62,9 @@ class IchthusCANKIAReader : public rclcpp::Node
     *  buffer[4] = LON ACC      (m/s^2)
     *  buffer[5] = YAW          (deg/s)
     *  buffer[6] = GEAR
+    *  buffer[7] = EMERGENCY LIGHT
+    *  buffer[8] = RIGHT LIGHT
+    *  buffer[9] = LEFT LIGHT
     */
     double* write_buffer;
 
@@ -72,6 +75,9 @@ class IchthusCANKIAReader : public rclcpp::Node
     int lon_acc_idx;
     int yaw_rate_idx;
     int gear_idx;
+    int emergency_light_idx;
+    int right_light_idx;
+    int left_light_idx;
 
     double current_kmph;
   public:
@@ -89,6 +95,7 @@ class IchthusCANKIAReader : public rclcpp::Node
     void spd_handler(std_msgs::msg::Float64MultiArray);
     void acc_handler(std_msgs::msg::Float64MultiArray);
     void gear_handler(std_msgs::msg::Float64MultiArray);
+    void light_handler(std_msgs::msg::Float64MultiArray);
     void publishOdom();
 
     rcl_interfaces::msg::SetParametersResult
