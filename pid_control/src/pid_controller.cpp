@@ -440,6 +440,8 @@ void PIDController::throttle_pid(float err)
   actuation_thr = p_term + i_term + d_term + MINUMIUM_TH;
   if(use_slope_compensation)
     actuation_thr_after_slope = applySlopeCompensation(actuation_thr);
+  else 
+    actuation_thr_after_slope = actuation_thr;
   
   if(actuation_thr_after_slope >= max_output_vel)
   {
@@ -478,6 +480,8 @@ void PIDController::brake_pid(float err)
   actuation_brk = P + I + D;
   if(use_slope_compensation)
     actuation_brk_after_slope = applySlopeCompensation(actuation_brk);
+  else
+    actuation_brk_after_slope = actuation_brk;
 
   if(actuation_brk_after_slope >= max_output_brk)
   {
