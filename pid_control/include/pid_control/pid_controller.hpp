@@ -28,8 +28,7 @@
 #define DEGtoRAD(deg) ((deg) * (0.017453))
 #define RADtoDEG(rad) ((rad) / (0.017453))
 #define MINUMIUM_TH 0.11
-#define LT_STR_MIN_TH 0.05 //It's Right - 0.01
-#define RT_STR_MIN_TH 0.09 //It's Right - 0.01
+#define FULL_BRAKE 0.55
 #define NO_SIGNAL 0 /* For input 0 signal in Data*/
 #define MAX_WIN_SIZE 20 /* iterm window maximam size */
 #define MAX_STR_WIN_SIZE 10 /* iterm window maximam size */
@@ -94,79 +93,142 @@ class PIDController : public rclcpp::Node
 
     OnSetParametersCallbackHandle::SharedPtr cb_handle;
 
-    std::mutex acc_iterm_Lock;
+    //!< @brief mutex for safe throttle iterm initialize
+    std::mutex thr_iterm_Lock;
+
+    //!< @brief mutex for safe brake iterm initialize
     std::mutex str_iterm_Lock;
 
-    std::deque<float> thr_iterm_window; // 5 seconds error will accumulated
-    std::deque<float> brk_iterm_window; 
-    std::deque<float> str_iterm_window;
-    //std::deque<float> str_iterm_window; 
+    //!< @brief deque for throttle iterm 
+    std::deque<float> thr_iterm_window; 
 
+    //!< @brief mutex for safe brake iterm initialize
+    std::deque<float> brk_iterm_window; 
+
+    //!< @brief mutex for safe steer iterm initialize
+    std::deque<float> str_iterm_window;
+
+    //!< @brief calculated actuation value (throttle)
     float actuation_thr;
+
+    //!< @brief calculated actuation value (brake)
     float actuation_brk;
+
+    //!< @brief calculated actuation value (steer)
     float actuation_sas;
 
+    //!< @brief calculated actuation value after slope compensation (throttle)
     float actuation_thr_after_slope;
+
+    //!< @brief calculated actuation value after slope compensation (brake)
     float actuation_brk_after_slope;
 
-    // Current Angle, Velocity
+    //!< @brief current angle
     float cur_ang;
+
+    //!< @brief current velocity
     float cur_vel;
 
-    float output_vel;
-    float output_ang;
+    //!< @brief reference velocity
     float ref_vel;
+
+    //!< @brief reference steering wheel angle (deg)
     float ref_ang;
 
+    //!< @brief current terrain slope (rad)
     float cur_slope;
 
+    //!< @brief P constant of throttle pid
     float thr_Kp;
+    //!< @brief I constant of throttle pid
     float thr_Ki;
+    //!< @brief D constant of throttle pid
     float thr_Kd;
 
+    //!< @brief P constant of brake pid
     float br_Kp;
+    //!< @brief I constant of brake pid
     float br_Ki;
+    //!< @brief D constant of brake pid
     float br_Kd;
 
+    //!< @brief P constant of steer pid
     float str_Kp;
+    //!< @brief I constant of steer pid
     float str_Ki;
+    //!< @brief D constant of steer pid
     float str_Kd;
 
+    //!< @brief last error used in throttle pid
     float thr_velocity_error_last;
+
+    //!< @brief integral term of throttle pid
+    //!  <MUST USE MUTEX>
     float thr_integral;
 
-		float cur_angle_weight;	/* STR_Kp weight per velocity (Note: Kp(1.0+WK_p*vel)) */
-		float cur_vel_weight;
-    float str_max_weight;
-    float str_minimum_thrs_buffer; /* Buffer for Steer PID minimum threshold (deg) */
-    float str_integral;
-
-		float velocity_last;
-
-
-
+    //!< @brief last error used in brake pid
     float brk_velocity_error_last;
+
+    //!< @brief integral term of brake pid
+    //!  <MUST USE MUTEX>
     float brk_integral;
 
+    //!< @brief angle weight for theta term of steer pid
+    //!  [angle pid output : P + D + theta_ + velocity_]
+		float cur_angle_weight;	
+
+    //!< @brief velocity weight for velocity term of steer pid
+    //!  STR_Kp weight per velocity (Note: (v^2 * str_Kp))
+		float cur_vel_weight;
+
+    //!< @brief weight for angle-adaptive maximum of steer pid
+    float str_max_weight;
+
+    //!< @brief minimum threshold buffer for steer pid
+    float str_minimum_thrs_buffer; 
+
+    //!< @brief integral term of steer pid
+    //!  <MUST USE MUTEX>
+    float str_integral;
+
+    //!< @brief last error used in steer pid
     float str_error_last;
-    //float str_integral;
 
+    //!< @brief maximum output value for throttle pid
     float max_output_vel;
-    float max_output_brk; 
+
+    //!< @brief maximum output value for steer pid
     float max_output_str;
-    float max_rate;
 
+    
+    //!< @brief minimum threshold slope value (currently not use)
     float slope_x_coeff;
-    float imu_error;
+    
+    //!< @brief weight for slope compensation
+    //! (output = output + output * slope wieght)
+    float slope_weight;
 
+    
+    //!< @brief threshold used for clockwise steering
+    //!  (this value statically added to steer pid output)
     float right_thres;
+
+    //!< @brief threshold used for counter-clockwise steering
+    //!  (this value statically added to steer pid output)
     float left_thres;
 
+    //!< @brief delay time for current brake pedal depth to full brake depth
     float comfort_time;
+    
+    //!< @brief 
     float hz;
+
+    //!< @brief delay time for current brake pedal depth to full brake depth
     float stop_dt;
     float brk_stop_dt;
     bool start_stopping;
+
+    //!< @brief if true, use slope compensation for throttle, brake pid
     bool use_slope_compensation;
 
     int state;
@@ -200,7 +262,7 @@ class PIDController : public rclcpp::Node
     float thres_table(float sign, float cur_ang, float cur_vel);
 
     int getMargine(float err, float ref_vel);
-    float applySlopeCompensation(float output_before_comp);
+    float applySlopeCompensation(float output_before_compensation);
     geometry_msgs::msg::Vector3 getRPY(geometry_msgs::msg::Quaternion& quat);
 
 

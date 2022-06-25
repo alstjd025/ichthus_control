@@ -93,10 +93,9 @@ void PIDController::init_Param()
   str_max_weight = this->declare_parameter("str_max_weight", (float)0.0);
 
   max_output_vel = this->declare_parameter("max_vel", (float)0.3);
-  max_output_brk = this->declare_parameter("max_brk", (float)0.65);
   max_output_str = this->declare_parameter("max_str", (float)0.35);
 
-  imu_error = this->declare_parameter("imu_error", (float)0.11);
+  slope_weight = this->declare_parameter("slope_weight", (float)0.11);
   slope_x_coeff = this->declare_parameter("slope_x_coeff", (float)-0.06);
 
   right_thres = this->declare_parameter("right_thres", (float)0.11);
@@ -119,7 +118,7 @@ void PIDController::init_Param()
   str_Ki = this->get_parameter("str_ki").as_double() / PID_CONSTANT;
   str_Kd = this->get_parameter("str_kd").as_double() / PID_CONSTANT;
 
-  imu_error = this->get_parameter("imu_error").as_double();
+  slope_weight = this->get_parameter("slope_weight").as_double();
   slope_x_coeff = this->get_parameter("slope_x_coeff").as_double();
 
   cur_angle_weight = this->get_parameter("cur_angle_weight").as_double()  / PID_CONSTANT;
@@ -127,7 +126,6 @@ void PIDController::init_Param()
   str_max_weight = this->get_parameter("str_max_weight").as_double()  / PID_CONSTANT;
 
   max_output_vel = this->get_parameter("max_vel").as_double() / PID_CONSTANT;
-  max_output_brk = this->get_parameter("max_brk").as_double() / PID_CONSTANT;
   max_output_str = this->get_parameter("max_str").as_double() / PID_CONSTANT;
 
   right_thres = this->get_parameter("right_thres").as_double();
@@ -143,8 +141,6 @@ void PIDController::init_Param()
   stop_dt = hz * comfort_time;
   brk_stop_dt = 0;
   start_stopping = true;
-
-	velocity_last = 0;
 }
 
 rcl_interfaces::msg::SetParametersResult
@@ -159,11 +155,6 @@ PIDController::param_CB(const std::vector<rclcpp::Parameter> & params)
     {
       max_output_vel = param.as_double();
       RCLCPP_INFO(this->get_logger(), "[PARAM] Change max_Vel : %lf", max_output_vel);
-    }
-    else if (param.get_name() =="max_brk")
-    {
-      max_output_brk = param.as_double();
-      RCLCPP_INFO(this->get_logger(), "[PARAM] Change max_Brk : %lf", max_output_brk);
     }
     else if (param.get_name() =="max_str")
     {
@@ -240,10 +231,10 @@ PIDController::param_CB(const std::vector<rclcpp::Parameter> & params)
       comfort_time = param.as_double();
       RCLCPP_INFO(this->get_logger(), "[PARAM] Change comfort_time : %lf", comfort_time);
     }
-    else if (param.get_name() =="imu_error")
+    else if (param.get_name() =="slope_weight")
     {
-      imu_error = param.as_double();
-      RCLCPP_INFO(this->get_logger(), "[PARAM] Change imu_error : %lf", imu_error);
+      slope_weight = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change slope_weight : %lf", slope_weight);
     }
     else if (param.get_name() =="slope_x_coeff")
     {
@@ -285,9 +276,9 @@ void PIDController::imu_CB(const sensor_msgs::msg::Imu::SharedPtr msg)
   //RCLCPP_INFO(this->get_logger(), "SLOPE : %f deg", cur_slope * (180 / 3.14));
 }
 
-float PIDController::applySlopeCompensation(float output_before_comp)
+float PIDController::applySlopeCompensation(float output_before_compensation)
 {
-  return output_before_comp + output_before_comp * sin(std::pow(cur_slope * (180.0 / M_PI), 2) * (M_PI / 180.0)) * imu_error ;
+  return output_before_compensation + output_before_compensation * slope_weight ;
 }
 
 void PIDController::pid_thr_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
@@ -304,14 +295,13 @@ void PIDController::pid_str_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 
 void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 {
-	velocity_last = msg->data;
 
   if (state == pid_state::PID_OFF) {
     return;
   }
   else if (state == pid_state::PID_STANDBY) {
     ichthus_msgs::msg::Pid brk_data;
-    brk_data.data = 0.55;
+    brk_data.data = FULL_BRAKE;
     brk_data.frame_id = "Brake";  
     pid_thr_pub->publish(brk_data);
   }
@@ -325,7 +315,7 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
       pid_thr_pub->publish(acc_data);
     }
 
-    brk_data.data = 0.55;
+    brk_data.data = FULL_BRAKE;
     brk_data.frame_id = "Brake";  
     pid_thr_pub->publish(brk_data);
   }
@@ -348,20 +338,20 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
     if(ref_vel < 0.03){
       #ifdef SMOOTH_BRK_PEDAL /* Note : Push brake pedal to maximum during 1.5s*/
         if (actuation_thr == NO_SIGNAL && start_stopping == true) {
-          brk_stop_dt = (max_output_brk - actuation_brk) / stop_dt;
+          brk_stop_dt = (FULL_BRAKE - actuation_brk) / stop_dt;
           start_stopping = false;
         }
         else if (actuation_brk == NO_SIGNAL && start_stopping == true) {
           acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
           acc_data.frame_id = "Throttle";    
           pid_thr_pub->publish(acc_data);
-          brk_stop_dt = max_output_brk / stop_dt;
+          brk_stop_dt = FULL_BRAKE / stop_dt;
           start_stopping = false;
         }
 
         actuation_brk += brk_stop_dt;
-        if (actuation_brk > max_output_brk) {
-          actuation_brk = max_output_brk;
+        if (actuation_brk > FULL_BRAKE) {
+          actuation_brk = FULL_BRAKE;
         }
 
         brk_data.data = actuation_brk;
@@ -452,7 +442,7 @@ void PIDController::throttle_pid(float err)
       actuation_thr_after_slope = 0;
   }
 
-  acc_iterm_Lock.lock();
+  thr_iterm_Lock.lock();
   /* Add Error Window Logic */
   if(thr_iterm_window.size() < MAX_WIN_SIZE){
     thr_iterm_window.push_back(vel_err);
@@ -464,7 +454,7 @@ void PIDController::throttle_pid(float err)
     thr_integral -= replaced;
     thr_integral += vel_err;
   } 
-  acc_iterm_Lock.unlock();
+  thr_iterm_Lock.unlock();
 
   thr_velocity_error_last = vel_err; 
 }
@@ -483,16 +473,16 @@ void PIDController::brake_pid(float err)
   else
     actuation_brk_after_slope = actuation_brk;
 
-  if(actuation_brk_after_slope >= max_output_brk)
+  if(actuation_brk_after_slope >= FULL_BRAKE)
   {
-      actuation_brk_after_slope = max_output_brk;
+      actuation_brk_after_slope = FULL_BRAKE;
   }
   else if( actuation_brk_after_slope <= 0)
   {
       actuation_brk_after_slope = 0;
   }
 
-  acc_iterm_Lock.lock();
+  thr_iterm_Lock.lock();
   if(brk_iterm_window.size() < MAX_WIN_SIZE){
     brk_iterm_window.push_back(brk_err);
     brk_integral += brk_err;
@@ -503,7 +493,7 @@ void PIDController::brake_pid(float err)
     brk_integral -= replaced;
     brk_integral += brk_err;
   }
-  acc_iterm_Lock.unlock();
+  thr_iterm_Lock.unlock();
 
   brk_velocity_error_last = brk_err;
 }
@@ -603,12 +593,12 @@ void PIDController::extern_CB(const std_msgs::msg::Int32::SharedPtr msg)
   else if (msg->data == pid_state::PID_OFF) {
     state = msg->data;
 
-    acc_iterm_Lock.lock();
+    thr_iterm_Lock.lock();
     thr_integral = 0;
     thr_iterm_window.clear();
     brk_integral = 0;
     brk_iterm_window.clear();
-    acc_iterm_Lock.unlock();
+    thr_iterm_Lock.unlock();
     str_iterm_Lock.lock();
     str_integral = 0;
     str_iterm_window.clear();

@@ -50,7 +50,7 @@ def generate_launch_description():
                 # 'cur_vel_weight': 0.09,
                 'cur_vel_weight': 0.093,
                 'max_str': 3300.0,
-                'imu_error': 0.5,
+                'slope_weight': 0.5,
                 'str_max_weight': 0.0,
                 'right_thres' : 0.055,
                 'left_thres' : -0.025,
