@@ -105,6 +105,8 @@ void PIDController::init_Param()
   comfort_time = this->declare_parameter("comfort_time", (float)1.5);
   str_minimum_thrs_buffer = this->declare_parameter("str_minimum_thrs_buffer", (float)1.0);
 
+  use_slope_compensation = this->declare_parameter("use_slope_compensation", false);
+
   thr_Kp = this->get_parameter("thr_kp").as_double() / PID_CONSTANT;
   thr_Ki = this->get_parameter("thr_ki").as_double() / PID_CONSTANT;
   thr_Kd = this->get_parameter("thr_kd").as_double() / PID_CONSTANT;
@@ -132,6 +134,7 @@ void PIDController::init_Param()
   left_thres = this->get_parameter("left_thres").as_double();
 
   comfort_time = this->get_parameter("comfort_time").as_double();
+  use_slope_compensation = this->get_parameter("comfort_time").as_bool();
 
   str_minimum_thrs_buffer = this->get_parameter("str_minimum_thrs_buffer").as_double();
 
@@ -256,6 +259,11 @@ PIDController::param_CB(const std::vector<rclcpp::Parameter> & params)
     {
       str_max_weight = param.as_double();
       RCLCPP_INFO(this->get_logger(), "[PARAM] Change str_minimum_thrs_buffer : %lf", str_minimum_thrs_buffer);
+    }
+    else if (param.get_name() =="use_slope_compensation")
+    {
+      str_max_weight = param.as_double();
+      RCLCPP_INFO(this->get_logger(), "[PARAM] Change use_slope_compensation : %d", use_slope_compensation);
     }
   }
   return result;
@@ -430,7 +438,8 @@ void PIDController::throttle_pid(float err)
   float d_term = thr_Kd * (vel_err - thr_velocity_error_last);
 
   actuation_thr = p_term + i_term + d_term + MINUMIUM_TH;
-  actuation_thr_after_slope = applySlopeCompensation(actuation_thr);
+  if(use_slope_compensation)
+    actuation_thr_after_slope = applySlopeCompensation(actuation_thr);
   
   if(actuation_thr_after_slope >= max_output_vel)
   {
@@ -467,8 +476,8 @@ void PIDController::brake_pid(float err)
   D = br_Kd * (brk_err - brk_velocity_error_last);
 
   actuation_brk = P + I + D;
- 
-  actuation_brk_after_slope = applySlopeCompensation(actuation_brk);
+  if(use_slope_compensation)
+    actuation_brk_after_slope = applySlopeCompensation(actuation_brk);
 
   if(actuation_brk_after_slope >= max_output_brk)
   {
@@ -502,8 +511,13 @@ void PIDController::steer_pid(float err)
 	float theta, V;
 	/* sign: direction of the steer error (+: right, -: left) */
 	float sign;
-
+    
 	sign = err >= 0.0 ? 1.0 : -1.0;
+  
+  #ifdef HARDCODE
+    if(cur_vel > 30 && abs(err) > 10)
+      err = sign * 10;
+  #endif
 
 	/* Note: the theta term: 
 		 Put additional torque (in Kp),
@@ -512,7 +526,6 @@ void PIDController::steer_pid(float err)
 		 Note: the V term:
 		 Put additional torque (in Kp) according to the current velocity (should be positive)
 	 */
-	//theta = sign * cur_ang > 0.0 ? cur_ang * cur_angle_weight : 0;
   theta = cur_ang * cur_angle_weight;
 	V = cur_vel_weight*cur_vel*cur_vel;
 
@@ -526,10 +539,16 @@ void PIDController::steer_pid(float err)
   actuation_sas += theta;
   str_error_last = err;
 
-	if (err > str_minimum_thrs_buffer)  /* Want steer clockwise */
-  	actuation_sas += (right_thres);
-	else if (err < -str_minimum_thrs_buffer)  /* Want steer counter-clockwise */
-  	actuation_sas += (left_thres);
+  #ifdef HARDCODE
+    actuation_sas += thres_table(sign, cur_ang, cur_vel);
+  #endif
+
+  #ifndef HARDCODE
+    if (err > str_minimum_thrs_buffer)  /* Want steer clockwise */
+      actuation_sas += (right_thres);
+    else if (err < -str_minimum_thrs_buffer)  /* Want steer counter-clockwise */
+      actuation_sas += (left_thres);
+  #endif HARDCODE
 
   max_output_str = max_output_str + sign*cur_ang*str_max_weight;
 	if (actuation_sas * sign > max_output_str)
@@ -604,13 +623,36 @@ void PIDController::e_stop_CB(const std_msgs::msg::Bool::SharedPtr msg)
 }
 
 
-float PIDController::thres_table(float ang) {
+float PIDController::thres_table(float sign, float cur_ang, \
+                                                float cur_vel) {
+  /* Note : right default 0.055 
+            left default -0.025
+  */
+  float abs_ang = abs(cur_ang);
   float thres = 0;
-  if (ang >= 0) {
-    thres = ang / slope_x_coeff + right_thres;
+  if (sign > 0) {                        // clockwise
+    if (abs_ang < 10)
+      thres = right_thres;
+    else if (abs_ang < 20)
+      thres = right_thres + 0.01;
+    else if (abs_ang < 30)
+      thres = right_thres + 0.02;
+    else if (abs_ang < 40)
+      thres = right_thres + 0.03;
+    else 
+      thres = right_thres + 0.035;
   }
-  else if (ang < 0) {
-    thres = ang / slope_x_coeff + left_thres;
+  else if (sign < 0) {                   // counter clockwise
+    if (abs_ang < 10)
+      thres = left_thres;
+    else if (abs_ang < 20)
+      thres = left_thres - 0.01;
+    else if (abs_ang < 30)
+      thres = left_thres - 0.02;
+    else if (abs_ang < 40)
+      thres = left_thres - 0.03;
+    else 
+      thres = left_thres - 0.035;
   }
   return thres;
 }

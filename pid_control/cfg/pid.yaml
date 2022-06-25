@@ -20,3 +20,4 @@
     base_str_kp: 150.0
     imu_error: 2.0
     slope_x_coeff: 11250.0
+    use_slope_compensation : false

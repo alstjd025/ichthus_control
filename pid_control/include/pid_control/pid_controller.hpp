@@ -37,10 +37,10 @@
 #define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
 
 
-
+#define HARDCODE  /* Some hardcoded part.. subject to change */
 #define DEBUG
 //#define SMOOTH_BRK_PEDAL
-#define USE_STR_ITERM
+//#define USE_STR_ITERM
 
 enum margin_table{
   CASE_A = 1,
@@ -167,6 +167,7 @@ class PIDController : public rclcpp::Node
     float stop_dt;
     float brk_stop_dt;
     bool start_stopping;
+    bool use_slope_compensation;
 
     int state;
 
@@ -196,7 +197,7 @@ class PIDController : public rclcpp::Node
     float get_ref_ang();
     float get_ref_vel();
 
-    float thres_table(float ang);
+    float thres_table(float sign, float cur_ang, float cur_vel);
 
     int getMargine(float err, float ref_vel);
     float applySlopeCompensation(float output_before_comp);
