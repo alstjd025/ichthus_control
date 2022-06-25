@@ -542,7 +542,7 @@ void PIDController::steer_pid(float err)
       actuation_sas += (right_thres);
     else if (err < -str_minimum_thrs_buffer)  /* Want steer counter-clockwise */
       actuation_sas += (left_thres);
-  #endif HARDCODE
+  #endif
 
   max_output_str = max_output_str + sign*cur_ang*str_max_weight;
 	if (actuation_sas * sign > max_output_str)
