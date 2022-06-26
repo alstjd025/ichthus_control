@@ -88,7 +88,6 @@ class PIDController : public rclcpp::Node
     rclcpp::Subscription<ichthus_msgs::msg::Common>::SharedPtr ang_sub;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr e_stop_sub;
-
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr extern_sub;
 
     OnSetParametersCallbackHandle::SharedPtr cb_handle;
@@ -231,8 +230,12 @@ class PIDController : public rclcpp::Node
     //!< @brief if true, use slope compensation for throttle, brake pid
     bool use_slope_compensation;
 
+    //!< @brief [PID state]
+    //! Note : PID_STANDBY, PID_OFF, PID_ON
     int state;
 
+
+    //!< @brief margine for throttle, brake pid
     margin_table margin;
   public:
     explicit PIDController(const rclcpp::NodeOptions &);
@@ -259,10 +262,19 @@ class PIDController : public rclcpp::Node
     float get_ref_ang();
     float get_ref_vel();
 
-    float thres_table(float sign, float cur_ang, float cur_vel);
+
+    #ifdef HARDCODE
+      float thres_table(float sign, float cur_ang, float cur_vel);
+    #endif
 
     int getMargine(float err, float ref_vel);
+
+    //!< @brief Slope compensation for throttle, brake pid
+    //! (output = output + output * slope wieght)
     float applySlopeCompensation(float output_before_compensation);
+
+
+    //!< @brief get pitch angle from imu (rad)
     geometry_msgs::msg::Vector3 getRPY(geometry_msgs::msg::Quaternion& quat);
 
 
