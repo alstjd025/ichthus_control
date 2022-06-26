@@ -60,7 +60,7 @@ void IchthusCANKIAReader::init_Param()
   ecu_ids.push_back(902);//0x386 - 4 Wheel Speed
   ecu_ids.push_back(882);//0x372 - Vehicle Gear
   ecu_ids.push_back(544);//0x220 - LonLat Accel & Yaw Rate
-  ecu_ids.push_back(1345);//0x541 - Turn Signal Light(Left-27, Right-26) & HazardSw(Emergency Light-20)
+  ecu_ids.push_back(1345);//0x541 - Turn Signal Light
 
   sas_ang_idx = 0;
   sas_spd_idx = 1;
@@ -72,6 +72,7 @@ void IchthusCANKIAReader::init_Param()
   emergency_light_idx = 19;
   right_light_idx = 25;
   left_light_idx = 26;
+  hba_control_idx = 34;
 
   current_kmph = 0;
 
@@ -197,6 +198,7 @@ void IchthusCANKIAReader::light_handler(std_msgs::msg::Float64MultiArray msgs)
   memcpy(write_buffer+7, &msgs.data[emergency_light_idx], sizeof(double));
   memcpy(write_buffer+8, &msgs.data[right_light_idx], sizeof(double));
   memcpy(write_buffer+9, &msgs.data[left_light_idx], sizeof(double));
+  memcpy(write_buffer+10, &msgs.data[hba_control_idx], sizeof(double));
   //RCLCPP_INFO(this->get_logger(), "light_handler.");
 }
 
@@ -220,6 +222,7 @@ void IchthusCANKIAReader::publishOdom()
   can_msg.can_names.push_back("EMERGENCY_LIGHT");
   can_msg.can_names.push_back("RIGHT_LIGHT");
   can_msg.can_names.push_back("LEFT_LIGHT");
+  can_msg.can_names.push_back("HBA_CONTROL");
   can_pub->publish(can_msg);
   cur_ang_pub->publish(cur_ang_msg);
   cur_vel_pub->publish(cur_vel_msg);
@@ -237,6 +240,7 @@ void IchthusCANKIAReader::publishOdom()
   // RCLCPP_INFO(this->get_logger(), "EMERGENCY_LIGHT %f", can_msg.can_data[7]);
   // RCLCPP_INFO(this->get_logger(), "RIGHT_LIGHT %f", can_msg.can_data[8]);
   // RCLCPP_INFO(this->get_logger(), "LEFT_LIGHT %f", can_msg.can_data[9]);
+  // RCLCPP_INFO(this->get_logger(), "HBA_CONTROL %f", can_msg.can_data[10]);
 }
 
 bool IchthusCANKIAReader::rx()
