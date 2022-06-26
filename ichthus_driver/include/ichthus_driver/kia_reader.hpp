@@ -23,7 +23,7 @@
 #include "dbcppp/CApi.h"
 #include "dbcppp/Network.h"
 
-#define PAYLOADSIZE 10 
+#define PAYLOADSIZE 11 
 
 namespace ichthus
 {
@@ -65,6 +65,7 @@ class IchthusCANKIAReader : public rclcpp::Node
     *  buffer[7] = EMERGENCY LIGHT
     *  buffer[8] = RIGHT LIGHT
     *  buffer[9] = LEFT LIGHT
+    *  buffer[10] = HBA CONTROL
     */
     double* write_buffer;
 
@@ -78,6 +79,7 @@ class IchthusCANKIAReader : public rclcpp::Node
     int emergency_light_idx;
     int right_light_idx;
     int left_light_idx;
+    int hba_control_idx;
 
     double current_kmph;
   public:
@@ -105,4 +107,5 @@ class IchthusCANKIAReader : public rclcpp::Node
 
 }
 
+    *  buffer[9] = LEFT LIGHT
 #endif // ICHTHUS_CAN__KIA_READER_HPP_
