@@ -30,7 +30,10 @@ namespace ichthus
 class IchthusCANMCMManager : public rclcpp::Node
 {
   private:
+    /*Publishers*/
     rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr mcmStatus_pub;
+  
+    /*Subscriptions*/
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr mcmCtl_sub;
     rclcpp::Subscription<ichthus_msgs::msg::Pid>::SharedPtr pidVel_sub;
     rclcpp::Subscription<ichthus_msgs::msg::Pid>::SharedPtr pidAng_sub;
@@ -38,36 +41,74 @@ class IchthusCANMCMManager : public rclcpp::Node
 
     OnSetParametersCallbackHandle::SharedPtr cb_handle;
     
-    //std::shared_ptr<SocketCAN> adapter;
+    //! @brief SocketCAN object includes socket discriptor and write, read funcs
     SocketCAN * adapter;
+
+    //! @brief MCM State variable for subsystem 1
     MCM_STATE MCM_State_subsys1;
+
+    //! @brief MCM State variable for subsystem 2
     MCM_STATE MCM_State_subsys2;
 
+    //! @brief can interface name (i.e. CAN0)
     std::string can_interface;
+
+    //! @brief worker thread for reader 
     std::thread rx_thread;
-    
+  
+    //! @brief can interface name (i.e. CAN0)
     int control_mode;
+
+    //! @brief prev state of MCM
     int state_history_flag;
 
+    //! @brief before transmitted, override ack msg will be saved here 
     std::queue<ACK_MSG> override_ack_msg_queue;
+
+    //! @brief before transmitted, fault ack msg will be saved here 
     std::queue<ACK_MSG> fault_ack_msg_queue;
 
   public:
     explicit IchthusCANMCMManager(const rclcpp::NodeOptions &);
     ~IchthusCANMCMManager() override;
 
-    // CAN MSG & ROS MSG CALLBACKS & HANDLERS
+    //! @brief velocity callback func (sends throttle, brake pid output to mcm)
     void vel_CB(const ichthus_msgs::msg::Pid::SharedPtr);
+    
+    //! @brief velocity callback func (sends steer pid output to mcm)
     void ang_CB(const ichthus_msgs::msg::Pid::SharedPtr);
+    
+    //! @brief mcm callback func
+    //! sends mcm interface enable/disable signal (command from keyboardcontroller)
     void mcm_ctl_CB(const std_msgs::msg::Int32::SharedPtr);
+
+    //! @brief returns current mcm state 
+    //! (because it only returns the temporary saved state of mcm,
+    //!  the implicit state can be differ with this, subject to change) 
     MCM_GENERAL_STATE get_mcm_State();
+
+    //! @brief set every control to false.
+    //! use only in mcm_State_update
     void setControlToAllFalse(int subsys_id);
+
+    //! @brief change the override state.
+    //! use only in mcm_State_update
     void changeOverrideState(int subsys_id, bool is_override);
 
-    void rx_mcm_Handler(can_frame_t *);
+    //! @brief reflect the mcm state with parsed data from below
     void mcm_State_Update(CanMessage::MCM_DATA);
+    
+    //! @brief parse recieved data from socketcan(mcm)
+    void rx_mcm_Handler(can_frame_t *);
+    
+    //! @brief timer called func (1s).
+    //!  publish current mcm state to keyboardcontroller
     void mcm_State_Cast();
+    
+    //! @brief used by rx thread
     bool rx();
+    
+    //! @brief rx worker thread
     void rxThread();
 
     // Fault Handling Functions         
