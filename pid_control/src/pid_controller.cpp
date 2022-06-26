@@ -132,7 +132,7 @@ void PIDController::init_Param()
   left_thres = this->get_parameter("left_thres").as_double();
 
   comfort_time = this->get_parameter("comfort_time").as_double();
-  use_slope_compensation = this->get_parameter("comfort_time").as_bool();
+  use_slope_compensation = this->get_parameter("use_slope_compensation").as_bool();
 
   str_minimum_thrs_buffer = this->get_parameter("str_minimum_thrs_buffer").as_double();
 
@@ -624,31 +624,37 @@ float PIDController::thres_table(float sign, float cur_ang, \
   */
   float abs_ang = abs(cur_ang);
   float thres = 0;
-  if (sign > 0) {                        // clockwise
-    if (abs_ang < 10)
-      thres = right_thres;
-    else if (abs_ang < 20)
-      thres = right_thres + 0.01;
-    else if (abs_ang < 30)
-      thres = right_thres + 0.02;
-    else if (abs_ang < 40)
-      thres = right_thres + 0.03;
-    else 
-      thres = right_thres + 0.035;
+  if(cur_vel > 35){
+    if (sign > 0) {                        // clockwise
+      if (abs_ang < 10)
+        thres = right_thres + 0.041;
+      else if (abs_ang < 20)
+        thres = right_thres + 0.046;
+      else if (abs_ang < 30)
+        thres = right_thres + 0.051;
+      else if (abs_ang < 40)
+        thres = right_thres + 0.061;
+      else 
+        thres = right_thres + 0.071;
+    }
+    else if (sign < 0) {                   // counter clockwise
+      if (abs_ang < 10)
+        thres = left_thres - 0.04;
+      else if (abs_ang < 20)
+        thres = left_thres - 0.045;
+      else if (abs_ang < 30)
+        thres = left_thres - 0.05;
+      else if (abs_ang < 40)
+        thres = left_thres - 0.06;
+      else 
+        thres = left_thres - 0.07;
+    }
+    return thres;
   }
-  else if (sign < 0) {                   // counter clockwise
-    if (abs_ang < 10)
-      thres = left_thres;
-    else if (abs_ang < 20)
-      thres = left_thres - 0.01;
-    else if (abs_ang < 30)
-      thres = left_thres - 0.02;
-    else if (abs_ang < 40)
-      thres = left_thres - 0.03;
-    else 
-      thres = left_thres - 0.035;
-  }
-  return thres;
+  if(sign > 0)
+    return right_thres;
+  else  
+    return left_thres;
 }
 
 int PIDController::getMargine(float err, float ref_vel){
