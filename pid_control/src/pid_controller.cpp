@@ -324,12 +324,9 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
     ichthus_msgs::msg::Pid brk_data;
     ichthus_msgs::msg::Pid str_data;
     float vel_err = 0;
-    float abs_vel_err = 0;
-
     cur_vel = msg->data;
 
     vel_err = ref_vel - cur_vel;
-    abs_vel_err = abs(vel_err);
 
     /* set margin wrttien in header */
     /* have to revise set calculate margin */
@@ -371,7 +368,7 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
       acc_data.data = NO_SIGNAL;
       acc_data.frame_id = "Throttle";    
       pid_thr_pub->publish(acc_data);
-      brake_pid(abs_vel_err);
+      brake_pid(abs(vel_err)));
       brk_data.data = actuation_brk_after_slope;
       brk_data.frame_id = "Brake";
       pid_thr_pub->publish(brk_data);
