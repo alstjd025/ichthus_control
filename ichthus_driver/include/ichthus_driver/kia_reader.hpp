@@ -107,5 +107,4 @@ class IchthusCANKIAReader : public rclcpp::Node
 
 }
 
-    *  buffer[9] = LEFT LIGHT
 #endif // ICHTHUS_CAN__KIA_READER_HPP_

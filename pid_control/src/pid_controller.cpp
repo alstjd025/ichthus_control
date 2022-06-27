@@ -278,8 +278,8 @@ void PIDController::imu_CB(const sensor_msgs::msg::Imu::SharedPtr msg)
 
 float PIDController::applySlopeCompensation(float output_before_compensation)
 {
-  return output_before_compensation + output_before_compensation * slope_weight ;
-}
+  return output_before_compensation + output_before_compensation * slope_weight;
+} 
 
 void PIDController::pid_thr_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 {
@@ -329,12 +329,11 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
     cur_vel = msg->data;
 
     vel_err = ref_vel - cur_vel;
-    abs_vel_err = abs(vel_err);
-
+    
     /* set margin wrttien in header */
     /* have to revise set calculate margin */
     //int VEL_BUFFER = getMargine(vel_err, ref_vel);
-    int VEL_BUFFER = 1;
+    float VEL_BUFFER = 1.0;
     if(ref_vel < 0.03){
       #ifdef SMOOTH_BRK_PEDAL /* Note : Push brake pedal to maximum during 1.5s*/
         if (actuation_thr == NO_SIGNAL && start_stopping == true) {
@@ -361,7 +360,7 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
       #endif // SMOOTH_BRK_PEDAL
       #ifndef SMOOTH_BRK_PEDAL /* Note : Set ref vel -5 when ref_vel < 0.03 km/h
                                         for brake pid */
-        ref_vel = -1;
+        ref_vel = -1.5;  /* Note : consider acc/brk buffer */
         vel_err = ref_vel - cur_vel;
       #endif
     }
@@ -371,8 +370,8 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
       acc_data.data = NO_SIGNAL;
       acc_data.frame_id = "Throttle";    
       pid_thr_pub->publish(acc_data);
-      brake_pid(abs_vel_err);
-      brk_data.data = actuation_brk_after_slope;
+      brake_pid(abs(vel_err));
+      brk_data.data = actuation_brk;
       brk_data.frame_id = "Brake";
       pid_thr_pub->publish(brk_data);
       start_stopping = true;
@@ -384,7 +383,7 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
       brk_data.data = actuation_brk;
       brk_data.frame_id = "Brake";
       pid_thr_pub->publish(brk_data);
-      acc_data.data = actuation_thr_after_slope;
+      acc_data.data = actuation_thr;
       acc_data.frame_id = "Throttle";
       pid_thr_pub->publish(acc_data);
       start_stopping = true;
@@ -429,17 +428,15 @@ void PIDController::throttle_pid(float err)
 
   actuation_thr = p_term + i_term + d_term + MINUMIUM_TH;
   if(use_slope_compensation)
-    actuation_thr_after_slope = applySlopeCompensation(actuation_thr);
-  else 
-    actuation_thr_after_slope = actuation_thr;
-  
-  if(actuation_thr_after_slope >= max_output_vel)
+    actuation_thr = applySlopeCompensation(actuation_thr);
+
+  if( actuation_thr >= max_output_vel)
   {
-      actuation_thr_after_slope = max_output_vel;
+    actuation_thr = max_output_vel;
   }
-  else if( actuation_thr_after_slope <= 0)
+  else if(  actuation_thr <= 0)
   {
-      actuation_thr_after_slope = 0;
+    actuation_thr = 0;
   }
 
   thr_iterm_Lock.lock();
@@ -469,17 +466,15 @@ void PIDController::brake_pid(float err)
 
   actuation_brk = P + I + D;
   if(use_slope_compensation)
-    actuation_brk_after_slope = applySlopeCompensation(actuation_brk);
-  else
-    actuation_brk_after_slope = actuation_brk;
+    actuation_brk = applySlopeCompensation(actuation_brk);
 
-  if(actuation_brk_after_slope >= FULL_BRAKE)
+  if(actuation_brk >= FULL_BRAKE)
   {
-      actuation_brk_after_slope = FULL_BRAKE;
+      actuation_brk = FULL_BRAKE;
   }
-  else if( actuation_brk_after_slope <= 0)
+  else if( actuation_brk <= 0)
   {
-      actuation_brk_after_slope = 0;
+      actuation_brk = 0;
   }
 
   thr_iterm_Lock.lock();

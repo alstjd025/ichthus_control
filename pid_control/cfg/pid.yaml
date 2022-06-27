@@ -18,6 +18,7 @@
     weight_str_kp: 0.03
     str_minimum_thrs_buffer: 1.0
     base_str_kp: 150.0
-    slope_weight: 2.0
     slope_x_coeff: 11250.0
-    use_slope_compensation: false
+
+    slope_weight: 0.5
+    use_slope_compensation: true

@@ -39,7 +39,7 @@ def generate_launch_description():
             parameters = [pid_cfg,
             {
                 'br_kp' : 150.0,
-                'br_ki' : 40.0,
+                'br_ki' : 80.0,
                 'str_kp': 20.0,
                 'str_ki' : 0.0, 
                 'str_kd' : 10.0,
