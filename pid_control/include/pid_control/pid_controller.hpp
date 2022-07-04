@@ -36,9 +36,9 @@
 #define PREVIOUS_WORK_BRAKE 0 /* worked Brake Signal previously */
 
 
-#define HARDCODE  /* Some hardcoded part.. subject to change */
+//#define HARDCODE  /* Some hardcoded part.. subject to change */
 #define DEBUG
-//#define SMOOTH_BRK_PEDAL
+#define SMOOTH_BRK_PEDAL
 //#define USE_STR_ITERM
 
 enum margin_table{

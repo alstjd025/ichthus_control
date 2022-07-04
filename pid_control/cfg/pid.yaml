@@ -21,4 +21,4 @@
     slope_x_coeff: 11250.0
 
     slope_weight: 0.5
-    use_slope_compensation: true
+    use_slope_compensation: false

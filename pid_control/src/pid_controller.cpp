@@ -337,6 +337,8 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
     if(ref_vel < 0.03){
       #ifdef SMOOTH_BRK_PEDAL /* Note : Push brake pedal to maximum during 1.5s*/
         if (actuation_thr == NO_SIGNAL && start_stopping == true) {
+          float remained_brake_percent = 1.0 - (actuation_brk / FULL_BRAKE);
+          stop_dt = stop_dt * remained_brake_percent;
           brk_stop_dt = (FULL_BRAKE - actuation_brk) / stop_dt;
           start_stopping = false;
         }
@@ -360,7 +362,7 @@ void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
       #endif // SMOOTH_BRK_PEDAL
       #ifndef SMOOTH_BRK_PEDAL /* Note : Set ref vel -5 when ref_vel < 0.03 km/h
                                         for brake pid */
-        ref_vel = -1.5;  /* Note : consider acc/brk buffer */
+        ref_vel = -1.8;  /* Note : consider acc/brk buffer */
         vel_err = ref_vel - cur_vel;
       #endif
     }
