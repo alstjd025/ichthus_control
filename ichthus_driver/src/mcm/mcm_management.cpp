@@ -17,18 +17,23 @@ IchthusCANMCMManager::IchthusCANMCMManager(const rclcpp::NodeOptions & options)
   init_Param();
   state_history_flag = 0;
 
-  //adapter = make_shared<SocketCAN>();
   adapter = new SocketCAN();
-  //adapter->open(can_interface.c_str());
   adapter->open(&*can_interface.begin());
 
   pidVel_sub = this->create_subscription<ichthus_msgs::msg::Pid>(
-    "pid_vel", 10, std::bind(&ichthus::IchthusCANMCMManager::vel_CB, this, std::placeholders::_1));
+    "pid_vel", 10, std::bind(&ichthus::IchthusCANMCMManager::vel_CB,\
+                                               this, std::placeholders::_1));
+
   pidAng_sub = this->create_subscription<ichthus_msgs::msg::Pid>(
-    "pid_ang", 10, std::bind(&ichthus::IchthusCANMCMManager::ang_CB, this, std::placeholders::_1));
+    "pid_ang", 10, std::bind(&ichthus::IchthusCANMCMManager::ang_CB,\
+                                               this, std::placeholders::_1));
+
   mcmCtl_sub = this->create_subscription<std_msgs::msg::Int32>(
-    "CONTROL_CMD", 1, std::bind(&ichthus::IchthusCANMCMManager::mcm_ctl_CB, this, std::placeholders::_1));
+    "CONTROL_CMD", 1, std::bind(&ichthus::IchthusCANMCMManager::mcm_ctl_CB,\
+                                                 this, std::placeholders::_1));
+
   mcmStatus_pub = this->create_publisher<std_msgs::msg::Int32>("mcm_status", 1);
+
   mcmStatus_timer = this->create_wall_timer(
     1s, std::bind(&ichthus::IchthusCANMCMManager::mcm_State_Cast, this));
 
@@ -61,19 +66,19 @@ void IchthusCANMCMManager::init_Param()
 
 void IchthusCANMCMManager::changeOverrideState(int subsys_id, bool is_override)
 {
-  if (subsys_id == 0){
+  if (subsys_id == SUBSYS_1){
     MCM_State_subsys1.OVERRIDE = is_override;
-  }else if(subsys_id == 1){
+  }else if(subsys_id == SUBSYS_2){
     MCM_State_subsys2.OVERRIDE = is_override;
   }
 }
 
 void IchthusCANMCMManager::setControlToAllFalse(int subsys_id){
-  if (subsys_id == 0){
+  if (subsys_id == SUBSYS_1){
     MCM_State_subsys1.Accel_Control_State = false;
     MCM_State_subsys1.Brake_Control_State = false;
     MCM_State_subsys1.Steer_Control_State = false;
-  }else if(subsys_id == 1){
+  }else if(subsys_id == SUBSYS_2){
     MCM_State_subsys2.Accel_Control_State = false;
     MCM_State_subsys2.Brake_Control_State = false;
     MCM_State_subsys2.Steer_Control_State = false;
@@ -120,15 +125,11 @@ void IchthusCANMCMManager::ang_CB(const ichthus_msgs::msg::Pid::SharedPtr cmd)
     adapter->make_can_frame(COMMAND_ID, output, send_data);
     adapter->transmit(send_data);
   }
-  /*else
-  {
-    printf("MCM State Unenable\n");
-  }*/
 }
 
 void IchthusCANMCMManager::mcm_ctl_CB(const std_msgs::msg::Int32::SharedPtr msg)
 {
-  if(msg->data == 0)
+  if(msg->data == 0)          /* Note : disable all interfaces */
   {
     RCLCPP_INFO(this->get_logger(), "All Control Disable");
     adapter->send_control_request(ACCEL_ID, false);
@@ -136,7 +137,7 @@ void IchthusCANMCMManager::mcm_ctl_CB(const std_msgs::msg::Int32::SharedPtr msg)
     adapter->send_control_request(STEER_ID, false);
     control_mode = 0;
   }
-  else if (msg->data == 1)
+  else if (msg->data == 1)  /*Note : enable all interfaces */
   {
     RCLCPP_INFO(this->get_logger(), "Send All Control Request");
     adapter->send_control_request(ACCEL_ID, true);
@@ -144,13 +145,13 @@ void IchthusCANMCMManager::mcm_ctl_CB(const std_msgs::msg::Int32::SharedPtr msg)
     adapter->send_control_request(STEER_ID, true);
     control_mode = 1;
   }
-  else if (msg->data == 2)
+  else if (msg->data == 2) /*Note : enable steer only */
   {
     RCLCPP_INFO(this->get_logger(), "Send Steer Control Request");
     adapter->send_control_request(STEER_ID, true);
     control_mode = 2;
   }
-  else if (msg->data == 3)
+  else if (msg->data == 3) /*Note : enable accel, brake only */
   {
     RCLCPP_INFO(this->get_logger(), "Send Accel & Brake Control Request");
     adapter->send_control_request(ACCEL_ID, true);
@@ -165,26 +166,32 @@ MCM_GENERAL_STATE IchthusCANMCMManager::get_mcm_State()
   if (MCM_State_subsys1.OVERRIDE || MCM_State_subsys2.OVERRIDE){
     return MCM_GENERAL_STATE::OVERRIDED;
   }
-  else if (control_mode == 1)
+  else if (control_mode == 1)  /* Note : all interface enabled */
   {
-    if (MCM_State_subsys1.Brake_Control_State == 1 && MCM_State_subsys1.Accel_Control_State == 1 &&
-        MCM_State_subsys1.Steer_Control_State == 1 && MCM_State_subsys2.Brake_Control_State == 1 &&
-        MCM_State_subsys2.Accel_Control_State == 1 && MCM_State_subsys2.Steer_Control_State == 1)
+    if (MCM_State_subsys1.Brake_Control_State == 1 && \
+                MCM_State_subsys1.Accel_Control_State == 1 &&
+        MCM_State_subsys1.Steer_Control_State == 1 && \
+                MCM_State_subsys2.Brake_Control_State == 1 &&
+        MCM_State_subsys2.Accel_Control_State == 1 && \
+                MCM_State_subsys2.Steer_Control_State == 1)
     {
       return MCM_GENERAL_STATE::CONTROL_ENABLED;
     }
   }
-  else if (control_mode == 2)
+  else if (control_mode == 2) /* Note : only steer enabled */
   {
-    if(MCM_State_subsys1.Steer_Control_State == 1 && MCM_State_subsys2.Steer_Control_State == 1)
+    if(MCM_State_subsys1.Steer_Control_State == 1 &&\
+                   MCM_State_subsys2.Steer_Control_State == 1)
     {
       return MCM_GENERAL_STATE::CONTROL_ENABLED;
     }
   }
-  else if (control_mode == 3)
+  else if (control_mode == 3) /* Note : only accel, brake enabled */
   {
-    if(MCM_State_subsys1.Brake_Control_State == 1 && MCM_State_subsys1.Accel_Control_State == 1 &&
-       MCM_State_subsys2.Brake_Control_State == 1 && MCM_State_subsys2.Accel_Control_State == 1)
+    if(MCM_State_subsys1.Brake_Control_State == 1 &&\
+          MCM_State_subsys1.Accel_Control_State == 1 &&\
+          MCM_State_subsys2.Brake_Control_State == 1 &&\
+             MCM_State_subsys2.Accel_Control_State == 1)
     {
       return MCM_GENERAL_STATE::CONTROL_ENABLED;
     }
@@ -232,11 +239,11 @@ void IchthusCANMCMManager::mcm_State_Update(CanMessage::MCM_DATA data)
     switch (data.hex_id)
     {
     case BRAKE_ID:
-      if(data.subsys_id == 0){
+      if(data.subsys_id == SUBSYS_1){
         if(MCM_State_subsys1.Brake_Control_State != data.bool_data)
           MCM_State_subsys1.Brake_Control_State = data.bool_data;
       }
-      else if(data.subsys_id == 1){
+      else if(data.subsys_id == SUBSYS_2){
         if(MCM_State_subsys2.Brake_Control_State != data.bool_data)
           MCM_State_subsys2.Brake_Control_State = data.bool_data;      
       }
@@ -244,11 +251,11 @@ void IchthusCANMCMManager::mcm_State_Update(CanMessage::MCM_DATA data)
             , MCM_State_subsys1.Brake_Control_State, MCM_State_subsys2.Brake_Control_State);
       break;
     case ACCEL_ID:
-      if(data.subsys_id == 0){
+      if(data.subsys_id == SUBSYS_1){
         if(MCM_State_subsys1.Accel_Control_State != data.bool_data)
           MCM_State_subsys1.Accel_Control_State = data.bool_data;
       }
-      else if(data.subsys_id == 1){
+      else if(data.subsys_id == SUBSYS_2){
         if(MCM_State_subsys2.Accel_Control_State != data.bool_data)
           MCM_State_subsys2.Accel_Control_State = data.bool_data;      
       }
@@ -256,11 +263,11 @@ void IchthusCANMCMManager::mcm_State_Update(CanMessage::MCM_DATA data)
             , MCM_State_subsys1.Accel_Control_State, MCM_State_subsys2.Accel_Control_State);
       break;
     case STEER_ID:
-      if(data.subsys_id == 0){
+      if(data.subsys_id == SUBSYS_1){
         if(MCM_State_subsys1.Steer_Control_State != data.bool_data)
           MCM_State_subsys1.Steer_Control_State = data.bool_data;
       }
-      else if(data.subsys_id == 1){
+      else if(data.subsys_id == SUBSYS_2){
         if(MCM_State_subsys2.Steer_Control_State != data.bool_data)
           MCM_State_subsys2.Steer_Control_State = data.bool_data;      
       }
@@ -300,10 +307,6 @@ void IchthusCANMCMManager::handleOverrideMsg(CanMessage::MCM_DATA data)
   new_msg.key[2] = data.override_msg[2] ^ ACK_KEY;
   new_msg.key[3] = data.override_msg[3] ^ ACK_KEY;
   if(override_ack_msg_queue.size() < 2){
-    /*if(!override_ack_msg_queue.empty() &&  //Check if Override MSG is valid
-      new_msg.subsys_id == override_ack_msg_queue.front().subsys_id){
-      override_ack_msg_queue.pop(); //If invalid, flush msg queue
-    }*/
     override_ack_msg_queue.push(new_msg);
   }
   if(override_ack_msg_queue.size() == 2){
