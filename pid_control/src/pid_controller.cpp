@@ -141,6 +141,9 @@ void PIDController::init_Param()
   stop_dt = hz * comfort_time;
   brk_stop_dt = 0;
   start_stopping = true;
+  
+  latest_actuation_brk = NO_SIGNAL;
+  latest_actuation_thr = NO_SIGNAL;
 }
 
 rcl_interfaces::msg::SetParametersResult
@@ -295,102 +298,170 @@ void PIDController::pid_str_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 
 void PIDController::spd_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
 {
-
-  if (state == pid_state::PID_OFF) {
+  if (state == pid_state::PID_OFF) { /* Do nothing, no actuation */
     return;
   }
-  else if (state == pid_state::PID_STANDBY) {
-    ichthus_msgs::msg::Pid brk_data;
-    brk_data.data = FULL_BRAKE;
-    brk_data.frame_id = "Brake";  
-    pid_thr_pub->publish(brk_data);
+  else if (state == pid_state::PID_STANDBY) { /* Wait for gear change */
+    holdBrakeforShift();
   }
-  else if (state == pid_state::E_STOP) {
-    ichthus_msgs::msg::Pid acc_data;
-    ichthus_msgs::msg::Pid brk_data;
-
-    if (actuation_brk > PREVIOUS_WORK_BRAKE) {
-      acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
-      acc_data.frame_id = "Throttle";
-      pid_thr_pub->publish(acc_data);
-    }
-
-    brk_data.data = FULL_BRAKE;
-    brk_data.frame_id = "Brake";  
-    pid_thr_pub->publish(brk_data);
+  else if (state == pid_state::E_STOP) { /* Emergnecy stop (maximum brake) */
+    Estop();
   }
   else if (state == pid_state::PID_ON) {
-    ichthus_msgs::msg::Pid acc_data;
-    ichthus_msgs::msg::Pid brk_data;
-    ichthus_msgs::msg::Pid str_data;
     float vel_err = 0;
     float abs_vel_err = 0;
 
     cur_vel = msg->data;
-
     vel_err = ref_vel - cur_vel;
     
     /* set margin wrttien in header */
     /* have to revise set calculate margin */
     //int VEL_BUFFER = getMargine(vel_err, ref_vel);
     float VEL_BUFFER = 1.0;
-    if(ref_vel < 0.03){
-      #ifdef SMOOTH_BRK_PEDAL /* Note : Push brake pedal to maximum during 1.5s*/
-        if (actuation_thr == NO_SIGNAL && start_stopping == true) {
-          float remained_brake_percent = 1.0 - (actuation_brk / FULL_BRAKE);
-          stop_dt = stop_dt * remained_brake_percent;
-          brk_stop_dt = (FULL_BRAKE - actuation_brk) / stop_dt;
-          start_stopping = false;
-        }
-        else if (actuation_brk == NO_SIGNAL && start_stopping == true) {
-          acc_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
-          acc_data.frame_id = "Throttle";    
-          pid_thr_pub->publish(acc_data);
-          brk_stop_dt = FULL_BRAKE / stop_dt;
-          start_stopping = false;
-        }
-
-        actuation_brk += brk_stop_dt;
-        if (actuation_brk > FULL_BRAKE) {
-          actuation_brk = FULL_BRAKE;
-        }
-
-        brk_data.data = actuation_brk;
-        brk_data.frame_id = "Brake";  
-        pid_thr_pub->publish(brk_data);  
-        return;
-      #endif // SMOOTH_BRK_PEDAL
-      #ifndef SMOOTH_BRK_PEDAL /* Note : Set ref vel -5 when ref_vel < 0.03 km/h
-                                        for brake pid */
-        ref_vel = -1.8;  /* Note : consider acc/brk buffer */
-        vel_err = ref_vel - cur_vel;
-      #endif
+    /* Note : */
+    if(ref_vel < 0.03){ 
+      smoothBrakeOnStopPoint();
+      return;
     }
 
-    if (vel_err < -VEL_BUFFER) //BRK
-    {
-      acc_data.data = NO_SIGNAL;
-      acc_data.frame_id = "Throttle";    
-      pid_thr_pub->publish(acc_data);
-      brake_pid(abs(vel_err));
-      brk_data.data = actuation_brk;
-      brk_data.frame_id = "Brake";
-      pid_thr_pub->publish(brk_data);
-      start_stopping = true;
+    if (vel_err < -VEL_BUFFER){ //BRK
+      actuateBrake(vel_err);
     }
-    else  //ACC
-    { 
-      throttle_pid(vel_err);
-      actuation_brk = NO_SIGNAL;
-      brk_data.data = actuation_brk;
-      brk_data.frame_id = "Brake";
-      pid_thr_pub->publish(brk_data);
-      acc_data.data = actuation_thr;
-      acc_data.frame_id = "Throttle";
-      pid_thr_pub->publish(acc_data);
-      start_stopping = true;
+    else{  //ACC
+      actuateThrottle(vel_err);
     }
   }
+}
+
+void PIDController::actuateThrottle(float err)
+{
+  ichthus_msgs::msg::Pid thr_data;
+  ichthus_msgs::msg::Pid brk_data;
+
+  /* Note : Must send 0 for other interface because 
+            MCM holds latest actuation signal */
+  /* think we don't use both feet while driving */
+  if(!latest_actuation_brk){
+    actuation_brk = NO_SIGNAL;
+    brk_data.data = actuation_brk;
+    brk_data.frame_id = "Brake";
+    pid_thr_pub->publish(brk_data);  
+  }
+  throttle_pid(err);
+  thr_data.data = actuation_thr;
+  thr_data.frame_id = "Throttle";
+  pid_thr_pub->publish(thr_data);
+  start_stopping = true;
+
+  /* Note : Update latest actuation values */
+  latest_actuation_thr = actuation_thr;
+  latest_actuation_brk = actuation_brk;
+}
+
+void PIDController::actuateBrake(float err)
+{
+  ichthus_msgs::msg::Pid thr_data;
+  ichthus_msgs::msg::Pid brk_data;
+  
+  /* Note : Must send 0 for other interface because 
+            MCM holds latest actuation signal */
+  /* think we don't use both feet while driving */
+  if(!latest_actuation_thr){
+    actuation_thr = NO_SIGNAL;
+    thr_data.data = actuation_thr;
+    thr_data.frame_id = "Throttle";
+    pid_thr_pub->publish(thr_data);  
+  }
+  brake_pid(abs(err));
+  brk_data.data = actuation_brk;
+  brk_data.frame_id = "Brake";
+  pid_thr_pub->publish(brk_data);
+  start_stopping = true;
+
+  /* Note : Update latest actuation values */
+  latest_actuation_thr = actuation_thr;
+  latest_actuation_brk = actuation_brk;
+}
+
+void PIDController::smoothBrakeOnStopPoint()
+{
+  ichthus_msgs::msg::Pid thr_data;
+  ichthus_msgs::msg::Pid brk_data;
+  
+  if (actuation_thr == NO_SIGNAL && start_stopping == true) {
+    float remained_brake_percent = 1.0 - (actuation_brk / FULL_BRAKE);
+    stop_dt = stop_dt * remained_brake_percent;
+    brk_stop_dt = (FULL_BRAKE - actuation_brk) / stop_dt;
+    start_stopping = false;
+  }
+  else if (actuation_brk == NO_SIGNAL && start_stopping == true) {
+    thr_data.data = NO_SIGNAL /* For input 0 signal in Data*/;
+    thr_data.frame_id = "Throttle";    
+    pid_thr_pub->publish(thr_data);
+    brk_stop_dt = FULL_BRAKE / stop_dt;
+    start_stopping = false;
+  }
+  actuation_brk += brk_stop_dt;
+  if (actuation_brk > FULL_BRAKE) {
+    actuation_brk = FULL_BRAKE;
+  }
+  brk_data.data = actuation_brk;
+  brk_data.frame_id = "Brake";  
+  pid_thr_pub->publish(brk_data);
+  
+  /* Note : Update latest actuation values */
+  latest_actuation_thr = actuation_thr;
+  latest_actuation_brk = actuation_brk;
+}
+
+void PIDController::holdBrakeforShift()
+{
+  ichthus_msgs::msg::Pid thr_data;
+  ichthus_msgs::msg::Pid brk_data;
+  
+  /* Note : Must send 0 for other interface because 
+            MCM holds latest actuation signal */
+  /* think we don't use both feet while driving */
+  if(!latest_actuation_thr){
+    actuation_thr = NO_SIGNAL;
+    thr_data.data = actuation_thr;
+    thr_data.frame_id = "Throttle";
+    pid_thr_pub->publish(thr_data);  
+  }
+  actuation_brk = FULL_BRAKE;
+  brk_data.data = actuation_brk;
+  brk_data.frame_id = "Brake";
+  pid_thr_pub->publish(brk_data);
+  start_stopping = true;
+
+  /* Note : Update latest actuation values */
+  latest_actuation_thr = actuation_thr;
+  latest_actuation_brk = actuation_brk;
+}
+
+void PIDController::Estop()
+{
+  ichthus_msgs::msg::Pid thr_data;
+  ichthus_msgs::msg::Pid brk_data;
+  
+  /* Note : Must send 0 for other interface because 
+            MCM holds latest actuation signal */
+  /* think we don't use both feet while driving */
+  if(!latest_actuation_thr){
+    actuation_thr = NO_SIGNAL;
+    thr_data.data = actuation_thr;
+    thr_data.frame_id = "Throttle";
+    pid_thr_pub->publish(thr_data);  
+  }
+  actuation_brk = FULL_BRAKE;
+  brk_data.data = actuation_brk;
+  brk_data.frame_id = "Brake";
+  pid_thr_pub->publish(brk_data);
+  start_stopping = true;
+
+  /* Note : Update latest actuation values */
+  latest_actuation_thr = actuation_thr;
+  latest_actuation_brk = actuation_brk;
 }
 
 void PIDController::ang_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
@@ -402,23 +473,20 @@ void PIDController::ang_CB(const ichthus_msgs::msg::Common::SharedPtr msg)
     return;
   }
   else if (state == pid_state::PID_ON) {
-    ichthus_msgs::msg::Pid data;
-
     float err = 0;
-    
     cur_ang = -(msg->data);
-
     err = ref_ang - cur_ang;
-    steer_pid(err);
-
-    data.data = actuation_sas;
-    data.frame_id = "Steer";
-    pid_str_pub->publish(data);
-
-    //RCLCPP_INFO(this->get_logger(), "error : %f", err);
-    //RCLCPP_INFO(this->get_logger(), "thres : %f", threshold);
-    //RCLCPP_INFO(this->get_logger(), "angle : %f", cur_ang);
+    actuateSteer(err);
   }
+}
+
+void PIDController::actuateSteer(float err)
+{
+  ichthus_msgs::msg::Pid data;
+  steer_pid(err);
+  data.data = actuation_sas;
+  data.frame_id = "Steer";
+  pid_str_pub->publish(data);
 }
 
 void PIDController::throttle_pid(float err)
@@ -657,10 +725,7 @@ float PIDController::thres_table(float sign, float cur_ang, \
 int PIDController::getMargine(float err, float ref_vel){
   float choice = abs(err);
   if(ref_vel <= 10){
-
   }
-
-
   if(choice <= 10){
     return margin_table::CASE_A;
   }else if( choice <= 20){
@@ -676,8 +741,6 @@ int PIDController::getMargine(float err, float ref_vel){
   }else{
     return margin_table::CASE_G; 
   }
-
 }
-
 
 } //namespace end

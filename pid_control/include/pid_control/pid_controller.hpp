@@ -108,11 +108,18 @@ class PIDController : public rclcpp::Node
     //!< @brief mutex for safe steer iterm initialize
     std::deque<float> str_iterm_window;
 
+    /* TODO : rename "actuation" to "setpoint" */
     //!< @brief calculated actuation value (throttle)
     float actuation_thr;
 
+    //!< @brief latest used actuation value (throttle)
+    float latest_actuation_thr;
+
     //!< @brief calculated actuation value (brake)
     float actuation_brk;
+
+    //!< @brief latest used actuation value (brake)
+    float latest_actuation_brk;
 
     //!< @brief calculated actuation value (steer)
     float actuation_sas;
@@ -251,6 +258,24 @@ class PIDController : public rclcpp::Node
     void throttle_pid(float);
     void brake_pid(float);
     void steer_pid(float);
+
+    //!< @brief send brake signal incremently 
+    void smoothBrakeOnStopPoint();
+
+    //!< @brief calc Brake pid & send signal to mcm
+    void actuateBrake(float err);
+
+    //!< @brief calc Throttle pid & send signal to mcm
+    void actuateThrottle(float err);
+
+    //!< @brief send static brake signal to mcm
+    void holdBrakeforShift();
+
+    //!< @brief send static brake signal to mcm
+    void Estop();
+
+    //!< @brief calc Steer pid & send signal to mcm
+    void actuateSteer(float err);
 
     void extern_CB(const std_msgs::msg::Int32::SharedPtr);
 
